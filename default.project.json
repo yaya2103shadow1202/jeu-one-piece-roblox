@@ -2,34 +2,15 @@
   "name": "jeu-one-piece-roblox",
   "tree": {
     "$className": "DataModel",
-    "ReplicatedStorage": {
-      "$className": "ReplicatedStorage",
-      "Shared": {
-        "$path": "src/shared"
-      },
-      "CombatRemotes": {
-        "$className": "Folder",
-        "M1": {
-          "$className": "RemoteEvent"
-        },
-        "M1Feedback": {
-          "$className": "RemoteEvent"
-        }
-      }
-    },
     "ServerScriptService": {
       "$className": "ServerScriptService",
-      "CombatServer": {
-        "$path": "src/server/CombatServer.server.lua"
-      }
+      "$path": "src/server"
     },
     "StarterPlayer": {
       "$className": "StarterPlayer",
       "StarterPlayerScripts": {
         "$className": "StarterPlayerScripts",
-        "Movement": {
-          "$path": "src/client/Movement.client.lua"
-        }
+        "$path": "src/client"
       }
     }
   }
