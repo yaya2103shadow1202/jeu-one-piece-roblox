@@ -2,6 +2,8 @@
 
 Goal: keep the game pirate/anime themed, R15 compatible, and avoid ripped copyrighted assets.
 
+These are **unverified candidates**, not imported assets. The first three listings have no published reviews as of September 2026. Their names and tags do not prove animation quality or usable AnimationIds. Inspect their actual contents and preview them on an R15 rig before selecting any of them. No animation asset is currently bundled with this repository.
+
 ## Combat animations (priority)
 
 1. R15 Fighting Animations Pack Combo Moveset
