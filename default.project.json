@@ -2,6 +2,10 @@
   "name": "jeu-one-piece-roblox",
   "tree": {
     "$className": "DataModel",
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "Shared": { "$path": "src/shared" }
+    },
     "ServerScriptService": {
       "$className": "ServerScriptService",
       "$path": "src/server"
