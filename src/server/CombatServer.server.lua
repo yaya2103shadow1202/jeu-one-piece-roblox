@@ -8,8 +8,8 @@ local feedbackRemote = remotes:WaitForChild("M1Feedback")
 
 local ATTACK_COOLDOWN = 0.30
 local COMBO_RESET = 1.10
-local HITBOX_SIZE = Vector3.new(6, 6, 7)
-local HITBOX_FORWARD = 3.4
+local HITBOX_SIZE = Vector3.new(7, 6, 8)
+local HITBOX_FORWARD = 3.8
 local DAMAGE_BY_COMBO = {5, 5, 6, 9}
 
 local stateByPlayer = {}
@@ -27,10 +27,25 @@ local function getState(player)
 	return state
 end
 
+local function validAttackDirection(root, requestedDirection)
+	if typeof(requestedDirection) ~= "Vector3" then
+		local fallback = root.CFrame.LookVector
+		return Vector3.new(fallback.X, 0, fallback.Z).Unit
+	end
+
+	local flat = Vector3.new(requestedDirection.X, 0, requestedDirection.Z)
+	if flat.Magnitude < 0.05 or flat.Magnitude > 1.5 then
+		local fallback = root.CFrame.LookVector
+		return Vector3.new(fallback.X, 0, fallback.Z).Unit
+	end
+
+	return flat.Unit
+end
+
 local function showHitEffect(model, targetRoot, damage, combo)
 	local highlight = Instance.new("Highlight")
 	highlight.Name = "M1HitFlash"
-	highlight.FillTransparency = combo == 4 and 0.25 or 0.5
+	highlight.FillTransparency = combo == 4 and 0.2 or 0.45
 	highlight.OutlineTransparency = 1
 	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 	highlight.Parent = model
@@ -56,26 +71,25 @@ local function showHitEffect(model, targetRoot, damage, combo)
 	Debris:AddItem(billboard, 0.45)
 end
 
-local function applyKnockback(attackerRoot, targetRoot, combo)
-	local forward = attackerRoot.CFrame.LookVector
+local function applyKnockback(direction, targetRoot, combo)
 	local mass = targetRoot.AssemblyMass
 
 	if combo == 4 then
 		targetRoot:ApplyImpulse(Vector3.new(
-			forward.X * mass * 42,
+			direction.X * mass * 42,
 			mass * 16,
-			forward.Z * mass * 42
+			direction.Z * mass * 42
 		))
 	else
 		targetRoot:ApplyImpulse(Vector3.new(
-			forward.X * mass * 5,
+			direction.X * mass * 5,
 			mass * 1.5,
-			forward.Z * mass * 5
+			direction.Z * mass * 5
 		))
 	end
 end
 
-local function attack(player)
+local function attack(player, requestedDirection)
 	local character = player.Character
 	if not character then return end
 
@@ -97,12 +111,14 @@ local function attack(player)
 
 	local combo = state.combo
 	local damage = DAMAGE_BY_COMBO[combo]
+	local direction = validAttackDirection(root, requestedDirection)
+	local facing = CFrame.lookAt(root.Position, root.Position + direction)
 
 	local params = OverlapParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = {character}
 
-	local hitboxCFrame = root.CFrame * CFrame.new(0, 0, -HITBOX_FORWARD)
+	local hitboxCFrame = facing * CFrame.new(0, 0, -HITBOX_FORWARD)
 	local parts = workspace:GetPartBoundsInBox(hitboxCFrame, HITBOX_SIZE, params)
 	local hitHumanoids = {}
 	local hitCount = 0
@@ -118,17 +134,11 @@ local function attack(player)
 			and targetHumanoid.Health > 0
 			and not hitHumanoids[targetHumanoid]
 		then
-			local offset = targetRoot.Position - root.Position
-			local inFront = offset.Magnitude < 0.01
-				or root.CFrame.LookVector:Dot(offset.Unit) > -0.15
-
-			if inFront then
-				hitHumanoids[targetHumanoid] = true
-				hitCount += 1
-				targetHumanoid:TakeDamage(damage)
-				applyKnockback(root, targetRoot, combo)
-				showHitEffect(model, targetRoot, damage, combo)
-			end
+			hitHumanoids[targetHumanoid] = true
+			hitCount += 1
+			targetHumanoid:TakeDamage(damage)
+			applyKnockback(direction, targetRoot, combo)
+			showHitEffect(model, targetRoot, damage, combo)
 		end
 	end
 
