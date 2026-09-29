@@ -1,18 +1,13 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local remotes = ReplicatedStorage:FindFirstChild("CombatRemotes") or Instance.new("Folder")
-remotes.Name = "CombatRemotes"
-remotes.Parent = ReplicatedStorage
-
-local m1Remote = remotes:FindFirstChild("M1") or Instance.new("RemoteEvent")
-m1Remote.Name = "M1"
-m1Remote.Parent = remotes
+local remotes = ReplicatedStorage:WaitForChild("CombatRemotes")
+local m1Remote = remotes:WaitForChild("M1")
 
 local ATTACK_COOLDOWN = 0.28
 local COMBO_RESET = 1.0
 local DAMAGE = 7
-local HITBOX_SIZE = Vector3.new(5, 5, 6)
+local HITBOX_SIZE = Vector3.new(6, 6, 7)
 local HITBOX_FORWARD = 3.5
 
 local stateByPlayer = {}
@@ -20,7 +15,11 @@ local stateByPlayer = {}
 local function getState(player)
 	local state = stateByPlayer[player]
 	if not state then
-		state = { lastAttack = 0, combo = 0, lastComboTime = 0 }
+		state = {
+			lastAttack = 0,
+			combo = 0,
+			lastComboTime = 0,
+		}
 		stateByPlayer[player] = state
 	end
 	return state
@@ -44,13 +43,13 @@ local function attack(player)
 
 	state.lastAttack = now
 	state.lastComboTime = now
-	state.combo = state.combo % 4 + 1
+	state.combo = (state.combo % 4) + 1
 
-	local hitboxCFrame = root.CFrame * CFrame.new(0, 0, -HITBOX_FORWARD)
 	local params = OverlapParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { character }
+	params.FilterDescendantsInstances = {character}
 
+	local hitboxCFrame = root.CFrame * CFrame.new(0, 0, -HITBOX_FORWARD)
 	local parts = workspace:GetPartBoundsInBox(hitboxCFrame, HITBOX_SIZE, params)
 	local hitHumanoids = {}
 
@@ -59,16 +58,28 @@ local function attack(player)
 		local targetHumanoid = model and model:FindFirstChildOfClass("Humanoid")
 		local targetRoot = model and model:FindFirstChild("HumanoidRootPart")
 
-		if targetHumanoid and targetRoot and targetHumanoid.Health > 0 and not hitHumanoids[targetHumanoid] then
+		if targetHumanoid
+			and targetRoot
+			and targetHumanoid ~= humanoid
+			and targetHumanoid.Health > 0
+			and not hitHumanoids[targetHumanoid]
+		then
 			hitHumanoids[targetHumanoid] = true
 			targetHumanoid:TakeDamage(DAMAGE)
 
+			local forward = root.CFrame.LookVector
 			if state.combo == 4 then
-				local forward = root.CFrame.LookVector
-				targetRoot.AssemblyLinearVelocity = Vector3.new(forward.X * 38, 16, forward.Z * 38)
+				targetRoot.AssemblyLinearVelocity = Vector3.new(
+					forward.X * 42,
+					18,
+					forward.Z * 42
+				)
 			else
-				local forward = root.CFrame.LookVector
-				targetRoot.AssemblyLinearVelocity += Vector3.new(forward.X * 7, 1.5, forward.Z * 7)
+				targetRoot.AssemblyLinearVelocity += Vector3.new(
+					forward.X * 8,
+					2,
+					forward.Z * 8
+				)
 			end
 		end
 	end
