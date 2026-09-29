@@ -1,8 +1,9 @@
--- Server-authoritative combat prototype: M1 + guard.
+-- Server-authoritative combat prototype: M1 + guard + replicated impact FX.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Debris = game:GetService("Debris")
+local TweenService = game:GetService("TweenService")
 
 local function getOrCreate(parent, className, name)
 	local existing = parent:FindFirstChild(name)
@@ -22,6 +23,7 @@ local remotes = getOrCreate(ReplicatedStorage, "Folder", "CombatRemotes")
 local m1Remote = getOrCreate(remotes, "RemoteEvent", "M1")
 local feedbackRemote = getOrCreate(remotes, "RemoteEvent", "M1Feedback")
 local blockRemote = getOrCreate(remotes, "RemoteEvent", "BlockState")
+local fxRemote = getOrCreate(remotes, "RemoteEvent", "CombatFX")
 
 local ATTACK_COOLDOWN = 0.30
 local COMBO_RESET = 1.10
@@ -89,14 +91,84 @@ local function sanitizeDirection(root, requestedDirection)
 	return fallback.Unit
 end
 
-local function showHitEffect(model, targetPart, damage)
+local function makeShockwave(position, combo, blocked)
+	local part = Instance.new("Part")
+	part.Name = blocked and "BlockShockwave" or "HitShockwave"
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.Material = Enum.Material.Neon
+	part.Color = blocked and Color3.fromRGB(110, 195, 255)
+		or (combo == 4 and Color3.fromRGB(255, 220, 130) or Color3.fromRGB(255, 245, 215))
+	part.Transparency = blocked and 0.32 or 0.22
+	part.Size = Vector3.new(0.65, 0.65, 0.65)
+	part.CFrame = CFrame.new(position)
+	part.Parent = workspace
+
+	local mesh = Instance.new("SpecialMesh")
+	mesh.MeshType = Enum.MeshType.Sphere
+	mesh.Scale = blocked and Vector3.new(2.6, 2.6, 2.6)
+		or (combo == 4 and Vector3.new(3.2, 3.2, 3.2) or Vector3.new(2.0, 2.0, 2.0))
+	mesh.Parent = part
+
+	TweenService:Create(mesh, TweenInfo.new(combo == 4 and 0.20 or 0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Scale = mesh.Scale * (combo == 4 and 2.2 or 1.8),
+	}):Play()
+	TweenService:Create(part, TweenInfo.new(combo == 4 and 0.20 or 0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Transparency = 1,
+	}):Play()
+
+	Debris:AddItem(part, 0.24)
+end
+
+local function makeImpactStreaks(position, combo, blocked)
+	local streakCount = combo == 4 and 7 or 4
+	local length = combo == 4 and 3.6 or 2.2
+	local color = blocked and Color3.fromRGB(120, 205, 255)
+		or (combo == 4 and Color3.fromRGB(255, 220, 130) or Color3.fromRGB(255, 250, 225))
+
+	for index = 1, streakCount do
+		local angle = (math.pi * 2 / streakCount) * index
+		local direction = Vector3.new(math.cos(angle), math.sin(angle), ((index % 2) - 0.5) * 0.7).Unit
+
+		local streak = Instance.new("Part")
+		streak.Name = "CombatImpactStreak"
+		streak.Anchored = true
+		streak.CanCollide = false
+		streak.CanQuery = false
+		streak.CanTouch = false
+		streak.Material = Enum.Material.Neon
+		streak.Color = color
+		streak.Transparency = 0.12
+		streak.Size = Vector3.new(0.10, 0.10, length)
+		streak.CFrame = CFrame.lookAt(position, position + direction) * CFrame.new(0, 0, -length * 0.25)
+		streak.Parent = workspace
+
+		TweenService:Create(streak, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Transparency = 1,
+			Size = Vector3.new(0.04, 0.04, length * 1.45),
+			CFrame = streak.CFrame * CFrame.new(0, 0, -0.8),
+		}):Play()
+		Debris:AddItem(streak, 0.15)
+	end
+end
+
+local function showHitEffect(model, targetPart, damage, combo)
 	local highlight = Instance.new("Highlight")
 	highlight.Name = "M1HitFlash"
-	highlight.FillTransparency = 0.45
-	highlight.OutlineTransparency = 1
+	highlight.FillColor = combo == 4 and Color3.fromRGB(255, 215, 125) or Color3.fromRGB(255, 245, 220)
+	highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+	highlight.FillTransparency = combo == 4 and 0.20 or 0.38
+	highlight.OutlineTransparency = 0.18
 	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 	highlight.Parent = model
-	Debris:AddItem(highlight, 0.10)
+	Debris:AddItem(highlight, combo == 4 and 0.16 or 0.10)
+
+	if targetPart then
+		makeShockwave(targetPart.Position, combo, false)
+		makeImpactStreaks(targetPart.Position, combo, false)
+	end
 
 	if not targetPart then
 		return
@@ -104,8 +176,8 @@ local function showHitEffect(model, targetPart, damage)
 
 	local billboard = Instance.new("BillboardGui")
 	billboard.Name = "M1DamageNumber"
-	billboard.Size = UDim2.fromOffset(80, 36)
-	billboard.StudsOffset = Vector3.new(0, 3, 0)
+	billboard.Size = UDim2.fromOffset(combo == 4 and 105 or 82, combo == 4 and 48 or 38)
+	billboard.StudsOffset = Vector3.new(0, combo == 4 and 3.5 or 3.0, 0)
 	billboard.AlwaysOnTop = true
 	billboard.Adornee = targetPart
 	billboard.Parent = targetPart
@@ -114,24 +186,31 @@ local function showHitEffect(model, targetPart, damage)
 	label.BackgroundTransparency = 1
 	label.Size = UDim2.fromScale(1, 1)
 	label.Text = "-" .. tostring(damage)
+	label.TextColor3 = combo == 4 and Color3.fromRGB(255, 220, 130) or Color3.fromRGB(255, 255, 255)
 	label.TextScaled = true
 	label.Font = Enum.Font.GothamBold
-	label.TextStrokeTransparency = 0.35
+	label.TextStrokeTransparency = 0.18
 	label.Parent = billboard
 
-	Debris:AddItem(billboard, 0.45)
+	Debris:AddItem(billboard, combo == 4 and 0.60 or 0.45)
 end
 
-local function showBlockEffect(model)
+local function showBlockEffect(model, targetRoot)
 	local highlight = Instance.new("Highlight")
 	highlight.Name = "BlockFlash"
-	highlight.FillColor = Color3.fromRGB(80, 150, 255)
-	highlight.OutlineColor = Color3.fromRGB(190, 225, 255)
-	highlight.FillTransparency = 0.45
-	highlight.OutlineTransparency = 0.1
+	highlight.FillColor = Color3.fromRGB(70, 155, 255)
+	highlight.OutlineColor = Color3.fromRGB(210, 240, 255)
+	highlight.FillTransparency = 0.36
+	highlight.OutlineTransparency = 0.08
 	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 	highlight.Parent = model
-	Debris:AddItem(highlight, 0.12)
+	Debris:AddItem(highlight, 0.14)
+
+	if targetRoot then
+		local position = targetRoot.Position + Vector3.new(0, 1.0, 0)
+		makeShockwave(position, 1, true)
+		makeImpactStreaks(position, 1, true)
+	end
 end
 
 local function applyKnockback(direction, targetRoot, combo)
@@ -245,6 +324,8 @@ local function attack(player, requestedDirection)
 	local facing = CFrame.lookAt(root.Position, root.Position + direction)
 	local hitboxCFrame = facing * CFrame.new(0, 0, -HITBOX_FORWARD)
 
+	fxRemote:FireAllClients("Swing", player.UserId, combo, false)
+
 	local params = OverlapParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = {character}
@@ -271,13 +352,15 @@ local function attack(player, requestedDirection)
 
 			if isBlockingFrontally(targetPlayer, targetRoot, root) then
 				blockedCount += 1
-				showBlockEffect(model)
+				showBlockEffect(model, targetRoot)
 				applyBlockRecoil(direction, targetRoot)
+				fxRemote:FireAllClients("Impact", targetPlayer and targetPlayer.UserId or 0, combo, true)
 			else
 				hitCount += 1
 				targetHumanoid:TakeDamage(damage)
 				applyKnockback(direction, targetRoot, combo)
-				showHitEffect(model, targetPart, damage)
+				showHitEffect(model, targetPart, damage, combo)
+				fxRemote:FireAllClients("Impact", targetPlayer and targetPlayer.UserId or 0, combo, false)
 			end
 		end
 	end
@@ -292,4 +375,4 @@ Players.PlayerRemoving:Connect(function(player)
 	stateByPlayer[player] = nil
 end)
 
-print("[CombatServer] ready")
+print("[CombatServer] ready - stylized combat FX enabled")
