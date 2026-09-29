@@ -26,10 +26,10 @@ local dashReady = true
 local airDashAvailable = true
 local m1Ready = true
 
--- Force third person and keep a useful PvP camera distance.
+-- Force third person while allowing the player to zoom with the mouse wheel.
 player.CameraMode = Enum.CameraMode.Classic
 player.CameraMinZoomDistance = 7
-player.CameraMaxZoomDistance = 14
+player.CameraMaxZoomDistance = 26
 
 local function setupCharacter(newCharacter)
 	character = newCharacter
