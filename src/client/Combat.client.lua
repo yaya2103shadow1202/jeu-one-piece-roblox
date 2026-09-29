@@ -1,19 +1,22 @@
--- M1 combat input only.
--- Mouse.Button1Down is used because it is simple, supported by Roblox, and already worked in this project.
+-- Combat input: M1 + guard.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Debris = game:GetService("Debris")
+local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local mouse = player:GetMouse()
 
 local M1_COOLDOWN = 0.30
 local ready = true
+local blocking = false
+local guardHighlight
 
 local remotes = ReplicatedStorage:WaitForChild("CombatRemotes")
 local m1Remote = remotes:WaitForChild("M1")
 local feedbackRemote = remotes:WaitForChild("M1Feedback")
+local blockRemote = remotes:WaitForChild("BlockState")
 
 local function getFlatCameraLook(root)
 	local camera = workspace.CurrentCamera
@@ -44,8 +47,44 @@ local function showLocalSwing(root, direction)
 	Debris:AddItem(part, 0.08)
 end
 
+local function setLocalGuardVisual(enabled)
+	if guardHighlight then
+		guardHighlight:Destroy()
+		guardHighlight = nil
+	end
+
+	if not enabled then
+		return
+	end
+
+	local character = player.Character
+	if not character then
+		return
+	end
+
+	local highlight = Instance.new("Highlight")
+	highlight.Name = "LocalGuardHighlight"
+	highlight.FillColor = Color3.fromRGB(80, 150, 255)
+	highlight.OutlineColor = Color3.fromRGB(170, 215, 255)
+	highlight.FillTransparency = 0.82
+	highlight.OutlineTransparency = 0.2
+	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	highlight.Parent = character
+	guardHighlight = highlight
+end
+
+local function setBlocking(enabled)
+	if blocking == enabled then
+		return
+	end
+
+	blocking = enabled
+	setLocalGuardVisual(enabled)
+	blockRemote:FireServer(enabled)
+end
+
 local function attack()
-	if not ready then
+	if not ready or blocking then
 		return
 	end
 
@@ -68,8 +107,36 @@ end
 
 mouse.Button1Down:Connect(attack)
 
-feedbackRemote.OnClientEvent:Connect(function(combo, hitCount)
-	print(string.format("[CombatClient] M1 combo=%d hits=%d", combo, hitCount))
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed then
+		return
+	end
+
+	if input.KeyCode == Enum.KeyCode.F then
+		setBlocking(true)
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.F then
+		setBlocking(false)
+	end
+end)
+
+player.CharacterAdded:Connect(function()
+	blocking = false
+	ready = true
+	setLocalGuardVisual(false)
+	blockRemote:FireServer(false)
+end)
+
+feedbackRemote.OnClientEvent:Connect(function(combo, hitCount, blockedCount)
+	print(string.format(
+		"[CombatClient] M1 combo=%d hits=%d blocked=%d",
+		combo,
+		hitCount or 0,
+		blockedCount or 0
+	))
 end)
 
 print("[CombatClient] ready")
