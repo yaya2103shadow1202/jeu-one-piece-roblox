@@ -1,9 +1,10 @@
--- Server-authoritative combat prototype: M1 + temporary guard + replicated impact FX.
+-- Server-authoritative combat prototype: M1 + Observation dodge + replicated impact FX.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Debris = game:GetService("Debris")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 
 local function getOrCreate(parent, className, name)
 	local existing = parent:FindFirstChild(name)
@@ -22,15 +23,21 @@ end
 local remotes = getOrCreate(ReplicatedStorage, "Folder", "CombatRemotes")
 local m1Remote = getOrCreate(remotes, "RemoteEvent", "M1")
 local feedbackRemote = getOrCreate(remotes, "RemoteEvent", "M1Feedback")
-local blockRemote = getOrCreate(remotes, "RemoteEvent", "BlockState")
+local observationRemote = getOrCreate(remotes, "RemoteEvent", "Observation")
 local fxRemote = getOrCreate(remotes, "RemoteEvent", "CombatFX")
 
-local ATTACK_COOLDOWN = 0.30
+local ATTACK_COOLDOWN = 0.52
 local COMBO_RESET = 1.10
 local HITBOX_SIZE = Vector3.new(5.5, 5.5, 6)
 local HITBOX_FORWARD = 3.0
 local DAMAGE_BY_COMBO = {5, 5, 6, 9}
-local BLOCK_FRONT_DOT = 0.20
+local WINDUP = 0.46
+-- The prompt is visible for 0.25s; the remaining 0.12s lets the input reach the server.
+local OBSERVATION_WINDOW = 0.37
+local OBSERVATION_CHARGES = 3
+local OBSERVATION_RECHARGE = 7
+local OBSERVATION_INPUT_COOLDOWN = 0.18
+local nextAttackId = 0
 
 local stateByPlayer = {}
 
@@ -44,8 +51,10 @@ local function getState(player)
 		lastAttack = 0,
 		lastComboTime = 0,
 		combo = 0,
-		blocking = false,
-		blockStarted = 0,
+		charges = OBSERVATION_CHARGES,
+		rechargeAt = 0,
+		lastObservationInput = 0,
+		pending = {},
 	}
 	stateByPlayer[player] = state
 	return state
@@ -53,16 +62,22 @@ end
 
 local function resetPlayerCombatState(player, character)
 	local state = getState(player)
-	state.blocking = false
+	state.charges = OBSERVATION_CHARGES
+	state.rechargeAt = 0
+	state.lastObservationInput = 0
+	state.pending = {}
 	state.combo = 0
 	state.lastAttack = 0
 	state.lastComboTime = 0
 	if character then
-		character:SetAttribute("Blocking", false)
+		character:SetAttribute("ObservationCharges", state.charges)
 	end
 end
 
 local function setupPlayer(player)
+	-- The future quest will set this attribute from trusted server code.
+	-- Studio access allows the mechanic to be tested before progression exists.
+	player:SetAttribute("ObservationUnlocked", RunService:IsStudio())
 	player.CharacterAdded:Connect(function(character)
 		resetPlayerCombatState(player, character)
 	end)
@@ -93,7 +108,7 @@ end
 
 local function makeShockwave(position, combo, blocked)
 	local part = Instance.new("Part")
-	part.Name = blocked and "BlockShockwave" or "HitShockwave"
+	part.Name = blocked and "DodgeShockwave" or "HitShockwave"
 	part.Anchored = true
 	part.CanCollide = false
 	part.CanQuery = false
@@ -171,9 +186,9 @@ local function showHitEffect(model, targetPart, combo)
 	end
 end
 
-local function showBlockEffect(model, targetRoot)
+local function showDodgeEffect(model, targetRoot)
 	local highlight = Instance.new("Highlight")
-	highlight.Name = "BlockFlash"
+	highlight.Name = "ObservationFlash"
 	highlight.FillColor = Color3.fromRGB(70, 155, 255)
 	highlight.OutlineColor = Color3.fromRGB(210, 240, 255)
 	highlight.FillTransparency = 0.36
@@ -210,63 +225,58 @@ local function applyKnockback(direction, targetRoot, combo)
 	end
 end
 
-local function applyBlockRecoil(direction, targetRoot)
-	if not targetRoot or targetRoot.Anchored then
+local function refreshCharges(player, state, now)
+	if state.charges >= OBSERVATION_CHARGES then
 		return
 	end
-	local mass = targetRoot.AssemblyMass
-	targetRoot:ApplyImpulse(Vector3.new(
-		direction.X * mass * 1.5,
-		0,
-		direction.Z * mass * 1.5
-	))
+	while state.charges < OBSERVATION_CHARGES and now >= state.rechargeAt do
+		state.charges += 1
+		state.rechargeAt += OBSERVATION_RECHARGE
+	end
+	if player.Character then
+		player.Character:SetAttribute("ObservationCharges", state.charges)
+	end
 end
 
-local function isBlockingFrontally(targetPlayer, targetRoot, attackerRoot)
-	if not targetPlayer or not targetRoot then
-		return false
-	end
-
-	local targetState = getState(targetPlayer)
-	if not targetState.blocking then
-		return false
-	end
-
-	local toAttacker = attackerRoot.Position - targetRoot.Position
-	local flat = Vector3.new(toAttacker.X, 0, toAttacker.Z)
-	if flat.Magnitude < 0.05 then
-		return true
-	end
-
-	local targetLook = Vector3.new(targetRoot.CFrame.LookVector.X, 0, targetRoot.CFrame.LookVector.Z)
-	if targetLook.Magnitude < 0.05 then
-		return false
-	end
-
-	return targetLook.Unit:Dot(flat.Unit) >= BLOCK_FRONT_DOT
-end
-
-local function setBlockState(player, requestedState)
-	if typeof(requestedState) ~= "boolean" then
+local function observationInput(player, attackId)
+	if typeof(attackId) ~= "number" or not player:GetAttribute("ObservationUnlocked") then
 		return
 	end
-
+	local state = getState(player)
+	local now = workspace:GetServerTimeNow()
+	if now - state.lastObservationInput < OBSERVATION_INPUT_COOLDOWN then
+		return
+	end
+	state.lastObservationInput = now
+	refreshCharges(player, state, now)
+	local pending = state.pending[attackId]
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	if not humanoid or humanoid.Health <= 0 then
-		requestedState = false
+	if not pending or pending.character ~= character or not humanoid or humanoid.Health <= 0
+		or pending.dodged or state.charges <= 0
+		or now < pending.deadline - OBSERVATION_WINDOW or now > pending.deadline then
+		return
 	end
-
-	local state = getState(player)
-	state.blocking = requestedState
-	if requestedState then
-		state.blockStarted = os.clock()
+	pending.dodged = true
+	state.charges -= 1
+	if state.charges == OBSERVATION_CHARGES - 1 then
+		state.rechargeAt = now + OBSERVATION_RECHARGE
 	end
-
-	if character then
-		character:SetAttribute("Blocking", requestedState)
-	end
+	character:SetAttribute("ObservationCharges", state.charges)
+	observationRemote:FireClient(player, "Success", attackId, state.charges)
 end
+
+observationRemote.OnServerEvent:Connect(observationInput)
+
+task.spawn(function()
+	while true do
+		task.wait(0.25)
+		local now = workspace:GetServerTimeNow()
+		for player, state in pairs(stateByPlayer) do
+			if player.Parent then refreshCharges(player, state, now) end
+		end
+	end
+end)
 
 local function attack(player, requestedDirection)
 	local character = player.Character
@@ -277,10 +287,6 @@ local function attack(player, requestedDirection)
 	end
 
 	local state = getState(player)
-	if state.blocking then
-		return
-	end
-
 	local now = os.clock()
 	if now - state.lastAttack < ATTACK_COOLDOWN then
 		return
@@ -297,41 +303,76 @@ local function attack(player, requestedDirection)
 	local combo = state.combo
 	local damage = DAMAGE_BY_COMBO[combo]
 	local direction = sanitizeDirection(root, requestedDirection)
-	local facing = CFrame.lookAt(root.Position, root.Position + direction)
-	local hitboxCFrame = facing * CFrame.new(0, 0, -HITBOX_FORWARD)
-
 	fxRemote:FireAllClients("Swing", player.UserId, combo, false)
 
 	local params = OverlapParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = {character}
+	local function candidates()
+		local facing = CFrame.lookAt(root.Position, root.Position + direction)
+		local hitboxCFrame = facing * CFrame.new(0, 0, -HITBOX_FORWARD)
+		local found = {}
+		for _, part in ipairs(workspace:GetPartBoundsInBox(hitboxCFrame, HITBOX_SIZE, params)) do
+			local model = part:FindFirstAncestorOfClass("Model")
+			local target = model and model:FindFirstChildOfClass("Humanoid")
+			if target and target ~= humanoid and target.Health > 0 then
+				found[target] = model
+			end
+		end
+		return found
+	end
 
-	local parts = workspace:GetPartBoundsInBox(hitboxCFrame, HITBOX_SIZE, params)
-	local alreadyHit = {}
+	nextAttackId += 1
+	local attackId = nextAttackId
+	local deadline = workspace:GetServerTimeNow() + WINDUP
+	local warned = {}
+	for _, model in pairs(candidates()) do
+		local targetPlayer = Players:GetPlayerFromCharacter(model)
+		if targetPlayer and targetPlayer:GetAttribute("ObservationUnlocked") then
+			local targetState = getState(targetPlayer)
+			refreshCharges(targetPlayer, targetState, workspace:GetServerTimeNow())
+			if targetState.charges > 0 then
+				targetState.pending[attackId] = {deadline = deadline, character = model, dodged = false}
+				warned[targetPlayer] = true
+				observationRemote:FireClient(targetPlayer, "Warning", attackId, deadline, targetState.charges)
+			end
+		end
+	end
+
+	task.wait(WINDUP)
+	for targetPlayer in pairs(warned) do
+		local targetState = stateByPlayer[targetPlayer]
+		if targetState then
+			refreshCharges(targetPlayer, targetState, workspace:GetServerTimeNow())
+		end
+	end
+	if player.Character ~= character or humanoid.Health <= 0 or not root.Parent then
+		for targetPlayer in pairs(warned) do
+			local targetState = stateByPlayer[targetPlayer]
+			if targetState then targetState.pending[attackId] = nil end
+		end
+		return
+	end
+
+	local targets = candidates()
 	local hitCount = 0
-	local blockedCount = 0
+	local dodgedCount = 0
 	local damageDone = 0
 
-	for _, part in ipairs(parts) do
-		local model = part:FindFirstAncestorOfClass("Model")
-		local targetHumanoid = model and model:FindFirstChildOfClass("Humanoid")
-
-		if targetHumanoid
-			and targetHumanoid ~= humanoid
-			and targetHumanoid.Health > 0
-			and not alreadyHit[targetHumanoid]
-		then
-			alreadyHit[targetHumanoid] = true
-
+	for targetHumanoid, model in pairs(targets) do
 			local targetRoot = model:FindFirstChild("HumanoidRootPart")
 			local targetPart = targetRoot or model:FindFirstChild("Head")
 			local targetPlayer = Players:GetPlayerFromCharacter(model)
-
-			if isBlockingFrontally(targetPlayer, targetRoot, root) then
-				blockedCount += 1
-				showBlockEffect(model, targetRoot)
-				applyBlockRecoil(direction, targetRoot)
-				fxRemote:FireAllClients("Impact", targetPlayer and targetPlayer.UserId or 0, combo, true)
+			local targetState = targetPlayer and stateByPlayer[targetPlayer]
+			local pending = targetState and targetState.pending[attackId]
+			if pending and pending.character == model and pending.dodged then
+				dodgedCount += 1
+				showDodgeEffect(model, targetRoot)
+				if targetRoot and not targetRoot.Anchored then
+					local side = Vector3.new(-direction.Z, 0, direction.X)
+					targetRoot:ApplyImpulse(side * targetRoot.AssemblyMass * 28)
+				end
+				fxRemote:FireAllClients("Impact", targetPlayer.UserId, combo, true)
 			else
 				hitCount += 1
 				damageDone += damage
@@ -340,14 +381,16 @@ local function attack(player, requestedDirection)
 				showHitEffect(model, targetPart, combo)
 				fxRemote:FireAllClients("Impact", targetPlayer and targetPlayer.UserId or 0, combo, false)
 			end
-		end
+	end
+	for targetPlayer in pairs(warned) do
+		local targetState = stateByPlayer[targetPlayer]
+		if targetState then targetState.pending[attackId] = nil end
 	end
 
-	feedbackRemote:FireClient(player, combo, hitCount, blockedCount, damageDone)
+	feedbackRemote:FireClient(player, combo, hitCount, dodgedCount, damageDone)
 end
 
 m1Remote.OnServerEvent:Connect(attack)
-blockRemote.OnServerEvent:Connect(setBlockState)
 
 Players.PlayerRemoving:Connect(function(player)
 	stateByPlayer[player] = nil
