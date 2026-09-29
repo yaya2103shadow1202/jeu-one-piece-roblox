@@ -1,11 +1,14 @@
--- Prototype movement controller
--- Third-person combat movement: sprint, ground dash and one air dash.
+-- Prototype movement + combat input controller
+-- Third-person combat movement: sprint, ground dash, one air dash and M1 input.
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Debris = game:GetService("Debris")
 
 local player = Players.LocalPlayer
+local mouse = player:GetMouse()
 
 local WALK_SPEED = 16
 local SPRINT_SPEED = 25
@@ -13,6 +16,7 @@ local DASH_SPEED = 70
 local DASH_DURATION = 0.16
 local DASH_COOLDOWN = 0.55
 local AIR_DASH_SPEED = 62
+local M1_COOLDOWN = 0.28
 
 local character
 local humanoid
@@ -20,6 +24,7 @@ local root
 local sprinting = false
 local dashReady = true
 local airDashAvailable = true
+local m1Ready = true
 
 -- Force third person and keep a useful PvP camera distance.
 player.CameraMode = Enum.CameraMode.Classic
@@ -83,7 +88,6 @@ local function dash()
 
 	while os.clock() - started < DASH_DURATION and root and root.Parent do
 		local y = root.AssemblyLinearVelocity.Y
-		-- Air dash keeps a small amount of vertical momentum but cannot be used to fly upward indefinitely.
 		if airborne then
 			y = math.min(y, 4)
 		end
@@ -95,6 +99,46 @@ local function dash()
 		dashReady = true
 	end)
 end
+
+local function showAttackFlash()
+	if not root or not root.Parent then return end
+
+	local part = Instance.new("Part")
+	part.Name = "M1DebugFlash"
+	part.Size = Vector3.new(5, 5, 6)
+	part.CFrame = root.CFrame * CFrame.new(0, 0, -3.5)
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.Material = Enum.Material.Neon
+	part.Transparency = 0.55
+	part.Parent = workspace
+	Debris:AddItem(part, 0.12)
+end
+
+local function attack()
+	if not m1Ready or not humanoid or humanoid.Health <= 0 then return end
+	m1Ready = false
+
+	-- This flash proves that the client received the left click.
+	showAttackFlash()
+
+	local remotes = ReplicatedStorage:FindFirstChild("CombatRemotes")
+	local m1Remote = remotes and remotes:FindFirstChild("M1")
+	if m1Remote and m1Remote:IsA("RemoteEvent") then
+		m1Remote:FireServer()
+	else
+		warn("M1 RemoteEvent introuvable")
+	end
+
+	task.delay(M1_COOLDOWN, function()
+		m1Ready = true
+	end)
+end
+
+-- GetMouse is deliberately used here because this LocalScript is already known to run.
+mouse.Button1Down:Connect(attack)
 
 UserInputService.InputBegan:Connect(function(input, processed)
 	if processed then return end
@@ -119,7 +163,6 @@ RunService.Heartbeat:Connect(function()
 	if humanoid.FloorMaterial ~= Enum.Material.Air then
 		airDashAvailable = true
 	end
-	-- Re-assert speed in case Roblox resets it during state changes.
 	if humanoid.Health > 0 then
 		humanoid.WalkSpeed = sprinting and SPRINT_SPEED or WALK_SPEED
 	end
