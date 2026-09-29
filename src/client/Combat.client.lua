@@ -488,8 +488,9 @@ fxRemote.OnClientEvent:Connect(function(action, userId, combo, extra)
 			return
 		end
 		local attacker = findPlayerByUserId(userId)
-		if attacker and attacker.Character then
-			playSwingVisual(attacker.Character, combo)
+		local attackerCharacter = attacker and attacker.Character or (typeof(extra) == "Instance" and extra)
+		if attackerCharacter then
+			playSwingVisual(attackerCharacter, combo)
 		end
 	elseif action == "Impact" then
 		local dodged = extra == true
