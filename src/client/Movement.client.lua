@@ -8,7 +8,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Debris = game:GetService("Debris")
 
 local player = Players.LocalPlayer
-local mouse = player:GetMouse()
 
 local WALK_SPEED = 16
 local SPRINT_SPEED = 25
@@ -16,7 +15,7 @@ local DASH_SPEED = 70
 local DASH_DURATION = 0.16
 local DASH_COOLDOWN = 0.55
 local AIR_DASH_SPEED = 62
-local M1_COOLDOWN = 0.28
+local M1_COOLDOWN = 0.30
 
 local character
 local humanoid
@@ -26,10 +25,13 @@ local dashReady = true
 local airDashAvailable = true
 local m1Ready = true
 
--- Force third person while allowing the player to zoom with the mouse wheel.
 player.CameraMode = Enum.CameraMode.Classic
 player.CameraMinZoomDistance = 7
 player.CameraMaxZoomDistance = 26
+
+local remotes = ReplicatedStorage:WaitForChild("CombatRemotes")
+local m1Remote = remotes:WaitForChild("M1")
+local feedbackRemote = remotes:WaitForChild("M1Feedback")
 
 local function setupCharacter(newCharacter)
 	character = newCharacter
@@ -37,6 +39,7 @@ local function setupCharacter(newCharacter)
 	root = character:WaitForChild("HumanoidRootPart")
 	humanoid.WalkSpeed = WALK_SPEED
 	airDashAvailable = true
+	m1Ready = true
 end
 
 if player.Character then
@@ -51,22 +54,20 @@ local function horizontalCameraVectors()
 		look = Vector3.new(0, 0, -1)
 	end
 	look = look.Unit
-	local right = Vector3.new(camera.CFrame.RightVector.X, 0, camera.CFrame.RightVector.Z).Unit
-	return look, right
+
+	local right = Vector3.new(camera.CFrame.RightVector.X, 0, camera.CFrame.RightVector.Z)
+	if right.Magnitude < 0.01 then
+		right = Vector3.new(1, 0, 0)
+	end
+	return look, right.Unit
 end
 
 local function inputDirection()
-	local look, right = horizontalCameraVectors()
-	local direction = Vector3.zero
-
-	if UserInputService:IsKeyDown(Enum.KeyCode.W) then direction += look end
-	if UserInputService:IsKeyDown(Enum.KeyCode.S) then direction -= look end
-	if UserInputService:IsKeyDown(Enum.KeyCode.D) then direction += right end
-	if UserInputService:IsKeyDown(Enum.KeyCode.A) then direction -= right end
-
-	if direction.Magnitude > 0 then
-		return direction.Unit
+	if humanoid and humanoid.MoveDirection.Magnitude > 0.05 then
+		return humanoid.MoveDirection.Unit
 	end
+
+	local look = horizontalCameraVectors()
 	return look
 end
 
@@ -100,50 +101,52 @@ local function dash()
 	end)
 end
 
-local function showAttackFlash()
-	if not root or not root.Parent then return end
-
+local function makeFlash(cframe, size, lifetime)
 	local part = Instance.new("Part")
 	part.Name = "M1DebugFlash"
-	part.Size = Vector3.new(5, 5, 6)
-	part.CFrame = root.CFrame * CFrame.new(0, 0, -3.5)
+	part.Size = size
+	part.CFrame = cframe
 	part.Anchored = true
 	part.CanCollide = false
 	part.CanQuery = false
 	part.CanTouch = false
 	part.Material = Enum.Material.Neon
-	part.Transparency = 0.55
+	part.Transparency = 0.65
 	part.Parent = workspace
-	Debris:AddItem(part, 0.12)
+	Debris:AddItem(part, lifetime)
 end
 
 local function attack()
-	if not m1Ready or not humanoid or humanoid.Health <= 0 then return end
+	if not m1Ready or not humanoid or humanoid.Health <= 0 or not root then return end
 	m1Ready = false
 
-	-- This flash proves that the client received the left click.
-	showAttackFlash()
+	local cameraLook = horizontalCameraVectors()
+	local attackCFrame = CFrame.lookAt(root.Position, root.Position + cameraLook)
 
-	local remotes = ReplicatedStorage:FindFirstChild("CombatRemotes")
-	local m1Remote = remotes and remotes:FindFirstChild("M1")
-	if m1Remote and m1Remote:IsA("RemoteEvent") then
-		m1Remote:FireServer()
-	else
-		warn("M1 RemoteEvent introuvable")
-	end
+	-- Local flash: proves the left click was read and shows attack direction.
+	makeFlash(attackCFrame * CFrame.new(0, 0, -3.5), Vector3.new(6, 5, 7), 0.10)
+	m1Remote:FireServer(cameraLook)
 
 	task.delay(M1_COOLDOWN, function()
 		m1Ready = true
 	end)
 end
 
--- GetMouse is deliberately used here because this LocalScript is already known to run.
-mouse.Button1Down:Connect(attack)
+-- Server feedback. A short second flash means the server received the M1.
+feedbackRemote.OnClientEvent:Connect(function(combo, hitCount)
+	if not root or not root.Parent then return end
+	local cameraLook = horizontalCameraVectors()
+	local attackCFrame = CFrame.lookAt(root.Position, root.Position + cameraLook)
+	local size = hitCount > 0 and Vector3.new(3, 3, 3) or Vector3.new(1.5, 1.5, 1.5)
+	makeFlash(attackCFrame * CFrame.new(0, 1.5, -2.2), size, 0.08)
+end)
 
 UserInputService.InputBegan:Connect(function(input, processed)
 	if processed then return end
 
-	if input.KeyCode == Enum.KeyCode.LeftShift then
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		attack()
+	elseif input.KeyCode == Enum.KeyCode.LeftShift then
 		sprinting = true
 		if humanoid then humanoid.WalkSpeed = SPRINT_SPEED end
 	elseif input.KeyCode == Enum.KeyCode.Q then
