@@ -11,6 +11,9 @@
         "$className": "Folder",
         "M1": {
           "$className": "RemoteEvent"
+        },
+        "M1Feedback": {
+          "$className": "RemoteEvent"
         }
       }
     },
@@ -26,9 +29,6 @@
         "$className": "StarterPlayerScripts",
         "Movement": {
           "$path": "src/client/Movement.client.lua"
-        },
-        "Combat": {
-          "$path": "src/client/Combat.client.lua"
         }
       }
     }
