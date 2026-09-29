@@ -1,0 +1,264 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local UI = require(script.Parent:WaitForChild("UI"))
+local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local Rules = require(ReplicatedStorage.Shared.Rules)
+local player = Players.LocalPlayer
+local remotes = ReplicatedStorage:WaitForChild("GameRemotes")
+local request = remotes:WaitForChild("Request")
+local palette = UI.Colors
+local profile, modal, page = nil, nil, nil
+local gui = Instance.new("ScreenGui")
+gui.Name, gui.ResetOnSpawn, gui.DisplayOrder = "ArchipelagoHUD", false, 10
+gui.Parent = player:WaitForChild("PlayerGui")
+local canvas = UI.frame(gui, "Canvas", 0, 0, 1280, 800)
+canvas.BackgroundTransparency, canvas.AnchorPoint, canvas.Position = 1, Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5)
+local scale = Instance.new("UIScale", canvas)
+local function fit()
+	local camera = workspace.CurrentCamera
+	if camera then scale.Scale = math.min(camera.ViewportSize.X / 1280, (camera.ViewportSize.Y - 40) / 800) end
+end
+fit()
+if workspace.CurrentCamera then workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(fit) end
+UI.text(canvas, "LES MERS LIBRES", 24, 17, 390, 30, 22, palette.Gold, true)
+local region = UI.text(canvas, "Port Brise-Azur", 24, 46, 440, 24, 14, palette.Muted)
+local vitals = UI.round(UI.frame(canvas, "Vitals", 24, 83, 274, 106), 12)
+UI.stroke(vitals)
+local levelText = UI.text(vitals, "CHARGEMENT…", 14, 9, 250, 22, 15, palette.Text, true)
+local hpText = UI.text(vitals, "VIE", 14, 32, 250, 20, 12, palette.Muted)
+local hpBar = UI.bar(vitals, 14, 55, 246, 7, palette.Teal)
+local xpBar = UI.bar(vitals, 14, 78, 246, 4, palette.Gold)
+local xpText = UI.text(vitals, "", 14, 85, 245, 17, 10, palette.Muted)
+local questPanel = UI.round(UI.frame(canvas, "Quest", 923, 83, 332, 180), 12)
+UI.stroke(questPanel)
+UI.text(questPanel, "JOURNAL DE BORD", 16, 12, 292, 20, 12, palette.Gold, true)
+local questTitle = UI.text(questPanel, "Ton aventure commence", 16, 38, 300, 40, 17, palette.Text, true)
+local questBody = UI.text(questPanel, "Parle à Alma sur la place du port. Approche-toi et appuie sur [E].", 16, 82, 300, 70, 14, palette.Muted)
+local coins = UI.text(canvas, "0 pièces", 950, 276, 300, 28, 18, palette.Gold, true)
+coins.TextXAlignment = Enum.TextXAlignment.Right
+local resources = UI.round(UI.frame(canvas, "Resources", 24, 653, 325, 111), 12)
+local energyText = UI.text(resources, "ÉNERGIE 100", 14, 10, 290, 21, 12, palette.Muted, true)
+local energyBar = UI.bar(resources, 14, 37, 295, 5, palette.Teal)
+local hakiText = UI.text(resources, "Observation à débloquer", 14, 51, 298, 22, 13, palette.Text)
+local armamentText = UI.text(resources, "Armement à débloquer", 14, 78, 298, 20, 12, palette.Muted)
+local status = UI.text(canvas, "Connexion…", 902, 744, 354, 24, 11, palette.Muted)
+status.TextXAlignment = Enum.TextXAlignment.Right
+local controls = UI.text(canvas, "Clic : attaque   R : lourde / recharge   Q : dash   F : esquive   H : Haki   Z : fruit", 357, 769, 900, 20, 12, palette.Muted)
+local hotbar = UI.round(UI.frame(canvas, "Styles", 426, 699, 478, 64), 12)
+local styleButtons = {}
+for i, id in ipairs({"Fists", "Sword", "Gun"}) do
+	styleButtons[id] = UI.button(hotbar, i .. "  " .. Config.Styles[id].Name, 8 + (i - 1) * 157, 8, 151, 48, function() request:FireServer("Equip", id) end)
+end
+local ammo = UI.text(canvas, "", 465, 669, 400, 23, 13, palette.Gold)
+ammo.TextXAlignment = Enum.TextXAlignment.Center
+local notification = UI.round(UI.frame(canvas, "Notification", 365, 84, 550, 62), 10)
+notification.Visible = false
+local notificationText = UI.text(notification, "", 18, 6, 514, 50, 16, palette.Text, true)
+local notifyToken = 0
+local function notify(message)
+	notifyToken += 1
+	local token = notifyToken
+	notificationText.Text, notification.Visible = message, true
+	task.delay(4, function() if notifyToken == token then notification.Visible = false end end)
+end
+remotes:WaitForChild("Notify").OnClientEvent:Connect(notify)
+local function close()
+	if modal then modal:Destroy() end
+	modal, page = nil, nil
+	player:SetAttribute("MenuOpen", false)
+end
+local function open(title, subtitle, kind)
+	close()
+	page = kind
+	player:SetAttribute("MenuOpen", true)
+	modal = UI.round(UI.frame(canvas, "Menu", 265, 172, 750, 482), 14)
+	UI.stroke(modal)
+	UI.text(modal, title, 24, 18, 645, 32, 23, palette.Gold, true)
+	UI.text(modal, subtitle, 24, 56, 690, 44, 14, palette.Muted)
+	UI.button(modal, "×", 691, 15, 38, 38, close)
+	return modal
+end
+local function refresh()
+	if not profile then return end
+	levelText.Text = "NIVEAU " .. profile.Level .. "  ·  " .. Config.Styles[profile.Style].Name
+	coins.Text = profile.Coins .. " pièces"
+	xpText.Text = profile.Level == Config.MaxLevel and "NIVEAU MAX DU PROTOTYPE" or (profile.XP .. " / " .. profile.NextXP .. " XP")
+	xpBar(profile.XP / profile.NextXP)
+	status.Text = profile.SaveStatus
+	for id, button in pairs(styleButtons) do
+		button.BackgroundColor3 = id == profile.Style and Color3.fromRGB(78, 99, 94) or palette.Raised
+		button.TextTransparency = profile.Owned[id] and 0 or 0.6
+	end
+	if profile.Quest then
+		local q = Config.Quests[profile.Quest.Id]
+		questTitle.Text = q.Name
+		questBody.Text = profile.Quest.Progress >= q.Count and "Objectif terminé. Retourne voir le PNJ sur l'île pour recevoir ta récompense."
+			or (Config.Enemies[q.Target].Name .. "  " .. profile.Quest.Progress .. "/" .. q.Count .. "\n" .. q.Text)
+	else
+		questTitle.Text = "Une mer à découvrir"
+		questBody.Text = "[E] Parler aux PNJ · [M] Carte\nQuêtes près des places d'arrivée. Le passeur t'attend au bout de chaque jetée."
+	end
+end
+remotes:WaitForChild("State").OnClientEvent:Connect(function(snapshot) profile = snapshot; refresh() end)
+local function showQuests(dialogue)
+	if not profile then return end
+	local panel = open(dialogue.Title, "Termine l'objectif puis reviens réclamer l'XP et la récompense.", "Quest")
+	for index, id in ipairs(dialogue.Offers) do
+		local q = Config.Quests[id]
+		local card = UI.round(UI.frame(panel, id, 24, 115 + (index - 1) * 148, 702, 136, palette.Raised), 10)
+		UI.text(card, q.Name, 16, 7, 510, 26, 17, palette.Text, true)
+		UI.text(card, "Niv. " .. q.Level .. " · " .. q.XP .. " XP · " .. q.Coins .. " pièces", 16, 36, 500, 20, 12, palette.Gold)
+		UI.text(card, q.Text, 16, 61, 506, 62, 13, palette.Muted)
+		local active = profile.Quest and profile.Quest.Id == id
+		local complete = active and profile.Quest.Progress >= q.Count
+		local actionText = complete and "RÉCOMPENSE" or (active and (profile.Quest.Progress .. "/" .. q.Count) or "ACCEPTER")
+		UI.button(card, actionText, 531, 43, 154, 46, function()
+			if complete then request:FireServer("TurnInQuest", id); close()
+			elseif not active then request:FireServer("AcceptQuest", id); close() end
+		end, complete and Color3.fromRGB(61, 111, 98) or palette.Panel)
+	end
+	if profile.Quest then UI.button(panel, "Abandonner la quête en cours", 24, 419, 300, 40, function() request:FireServer("AbandonQuest"); close() end) end
+end
+local function showFerry(dialogue)
+	if not profile then return end
+	local panel = open("TRAVERSÉES", "Passage gratuit. Choisis une île adaptée à ton niveau.", "Ferry")
+	for i, island in ipairs(Config.Islands) do
+		local label = island.Name .. "   ·   niv. " .. island.Level
+		if island.Id == dialogue.Island then label ..= "   ·   vous êtes ici" end
+		UI.button(panel, label, 24, 112 + (i - 1) * 81, 702, 65, function()
+			request:FireServer("Travel", island.Id, dialogue.Island)
+			close()
+		end, profile.Level >= island.Level and palette.Raised or Color3.fromRGB(38, 41, 48))
+	end
+end
+local function showStyles()
+	if not profile then return end
+	local panel = open("LA FORCE DE TA VOLONTÉ", "Le fruit est facultatif. Les maîtrises progressent en infligeant des dégâts aux ennemis.", "Styles")
+	for i, style in ipairs({"Fists", "Sword", "Gun"}) do
+		local text = Config.Styles[style].Name .. " · maîtrise " .. profile.Mastery[style]
+		if not profile.Owned[style] then text ..= " · verrouillé" end
+		UI.button(panel, text, 24, 113 + (i - 1) * 51, 348, 42, function() request:FireServer("Equip", style); close() end)
+	end
+	UI.text(panel, "DÉBLOCAGES\nPillards du port → sabre\nBrisecoque → Armement\nÉcumeurs → pistolet\nGardien → Observation", 399, 112, 313, 148, 14, palette.Muted)
+	UI.text(panel, "ARMEMENT [H] · Concentration : +30 % dégâts. Garde : −30 % dégâts subis. L'énergie limite la durée.\nOBSERVATION [F] · Trois charges, réaction au signal. Le dojo permet de s'entraîner avant le déblocage.", 24, 283, 696, 96, 14, palette.Text)
+	UI.button(panel, "PvP : " .. (player:GetAttribute("PvPEnabled") and "ACTIVÉ" or "DÉSACTIVÉ"), 24, 409, 340, 44, function()
+		request:FireServer("PvP", not player:GetAttribute("PvPEnabled")); close()
+	end)
+	UI.text(panel, "Le PvP exige l'accord des deux joueurs et reste désactivé près des arrivées.", 389, 403, 323, 56, 12, palette.Muted)
+end
+local function showFruit(dialogue)
+	local panel = open(dialogue.Title, "Une voie possible, pas une obligation.", "Fruit")
+	UI.text(panel, "LE FRUIT DES BRAISES", 24, 124, 680, 35, 22, palette.Text, true)
+	UI.text(panel, "Après « Écouter la forêt », tu peux choisir ce fruit. Tu construis ensuite tes techniques : projectile, zone, rempart ou propulsion, avec puissance, taille et portée réglables.\n\nChaque réglage modifie le coût et l'efficacité. La mer inflige davantage de dégâts aux utilisateurs de fruit.", 24, 173, 680, 166, 17, palette.Muted)
+	UI.button(panel, "Choisir le fruit des Braises", 24, 383, 680, 56, function() request:FireServer("ConsumeFruit"); close() end)
+end
+local function showTechnique()
+	if not profile then return end
+	local panel = open("ATELIER DES TECHNIQUES", "Choisis une forme et répartis tes réglages. [Z] pour utiliser ta technique.", "Technique")
+	if not profile.Fruit then
+		UI.text(panel, "Tu n'as pas encore choisi de fruit.\nEna t'attend dans la Futaie des Épaves, après la quête du Gardien.\n\nTu peux poursuivre toute la progression avec les armes et le Haki.", 28, 133, 687, 195, 19, palette.Text)
+		return
+	end
+	local draft = table.clone(profile.Technique)
+	local statsText = UI.text(panel, "", 391, 172, 315, 158, 17, palette.Gold)
+	local values, buttons = {}, {}
+	local function preview()
+		local stats = Rules.techniqueStats(draft)
+		statsText.Text = "COÛT  " .. stats.Cost .. " énergie\nDÉGÂTS DE BASE  " .. math.floor(stats.Damage) .. "\nRAYON  " .. stats.Radius .. "\nPORTÉE  " .. stats.Range .. "\nRECHARGE  " .. string.format("%.1f s", stats.Cooldown)
+		if draft.Shape == "Propulsion" then statsText.Text = "COÛT  " .. stats.Cost .. " énergie\nVITESSE  " .. stats.Speed .. "\nDURÉE  " .. string.format("%.2f s", stats.Duration) .. "\nUne propulsion aérienne avant de retoucher le sol."
+		elseif draft.Shape == "Rempart" then statsText.Text = "COÛT  " .. stats.Cost .. " énergie\nLARGEUR  " .. (5 + draft.Size * 4) .. "\nDISTANCE  " .. stats.Range .. "\nDURÉE  " .. string.format("%.1f s", stats.Duration) .. "\nUn rempart actif à la fois." end
+		for key, label in pairs(values) do label.Text = tostring(draft[key]) end
+		for shape, button in pairs(buttons) do button.BackgroundColor3 = draft.Shape == shape and Color3.fromRGB(107, 89, 61) or palette.Raised end
+	end
+	for i, shape in ipairs(Config.Fruit.Shapes) do
+		buttons[shape] = UI.button(panel, shape, 24 + (i - 1) * 177, 112, 171, 42, function() draft.Shape = shape; preview() end)
+	end
+	for i, key in ipairs({"Power", "Size", "Reach"}) do
+		local name = ({Power = "Puissance", Size = "Taille", Reach = "Portée"})[key]
+		local y = 185 + (i - 1) * 56
+		UI.text(panel, name, 24, y, 142, 36, 17, palette.Text)
+		UI.button(panel, "−", 175, y, 42, 36, function() draft[key] = math.max(1, draft[key] - 1); preview() end)
+		values[key] = UI.text(panel, "", 230, y, 40, 36, 20, palette.Gold, true)
+		UI.button(panel, "+", 282, y, 42, 36, function() draft[key] = math.min(3, draft[key] + 1); preview() end)
+	end
+	UI.text(panel, "Une zone plus large dilue la puissance. Plus de portée, de taille ou de puissance coûte davantage d'énergie.", 24, 354, 691, 48, 14, palette.Muted)
+	UI.button(panel, "ENREGISTRER LA TECHNIQUE", 24, 414, 702, 44, function() request:FireServer("Technique", draft); close() end)
+	preview()
+end
+local function showMap()
+	local panel = open("CARTE DE L'ARCHIPEL", "Voyage avec le passeur de chaque port. Quatre étapes vers les mers suivantes.", "Map")
+	local chart = UI.round(UI.frame(panel, "Chart", 24, 109, 702, 292, Color3.fromRGB(28, 66, 83)), 10)
+	local selected = UI.text(panel, "Choisis une île pour lire son nom et son niveau conseillé.", 24, 414, 702, 45, 15, palette.Gold)
+	for _, island in ipairs(Config.Islands) do
+		local x = (island.Position[1] + 1150) / 2400 * 650 + 25
+		local y = (island.Position[3] + 1830) / 2250 * 244 + 18
+		local button = UI.button(chart, island.Level .. "+", x - 26, y - 21, 66, 45, function()
+			selected.Text = island.Name .. " · Niv. " .. island.Level .. "\n" .. island.Subtitle
+		end, Color3.fromRGB(table.unpack(island.Color)))
+		UI.round(button, 22)
+		UI.text(chart, island.Name, x - 71, y + 27, 154, 25, 10, palette.Text, true).TextXAlignment = Enum.TextXAlignment.Center
+	end
+end
+UI.button(canvas, "M  CARTE", 883, 20, 114, 37, showMap)
+UI.button(canvas, "B  STYLES", 1007, 20, 119, 37, showStyles)
+UI.button(canvas, "T  FRUIT", 1136, 20, 120, 37, showTechnique)
+remotes:WaitForChild("Dialogue").OnClientEvent:Connect(function(dialogue)
+	if dialogue.Kind == "Quest" then showQuests(dialogue)
+	elseif dialogue.Kind == "Ferry" then showFerry(dialogue)
+	elseif dialogue.Kind == "Master" then showStyles()
+	elseif dialogue.Kind == "Fruit" then showFruit(dialogue) end
+end)
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed or UserInputService:GetFocusedTextBox() then return end
+	if input.KeyCode == Enum.KeyCode.M then if page == "Map" then close() else showMap() end
+	elseif input.KeyCode == Enum.KeyCode.B then if page == "Styles" then close() else showStyles() end
+	elseif input.KeyCode == Enum.KeyCode.T then if page == "Technique" then close() else showTechnique() end end
+end)
+local damagePanel = UI.round(UI.frame(canvas, "Damage", 1050, 430, 205, 88), 12)
+damagePanel.Visible = false
+UI.text(damagePanel, "DÉGÂTS", 14, 8, 180, 18, 11, palette.Gold, true)
+local damageLabel = UI.text(damagePanel, "", 14, 27, 180, 45, 29, palette.Text, true)
+local damage, hits, lastHit, token = 0, 0, -10, 0
+ReplicatedStorage:WaitForChild("CombatRemotes"):WaitForChild("M1Feedback").OnClientEvent:Connect(function(combo, hitCount, _, amount)
+	if amount <= 0 then return end
+	if os.clock() - lastHit > 1.4 or combo == 1 then damage, hits = 0, 0 end
+	damage, hits, lastHit = damage + amount, hits + hitCount, os.clock()
+	damageLabel.Text = math.floor(damage + 0.5) .. "  ·  " .. hits .. " coups"
+	damagePanel.Visible = true
+	token += 1
+	local current = token
+	task.delay(1.5, function() if token == current then damagePanel.Visible = false end end)
+end)
+local elapsed = 0
+RunService.RenderStepped:Connect(function(dt)
+	elapsed += dt
+	if elapsed < 0.1 then return end
+	elapsed = 0
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if humanoid then hpBar(humanoid.Health / humanoid.MaxHealth); hpText.Text = "VIE  " .. math.ceil(humanoid.Health) .. " / " .. humanoid.MaxHealth end
+	local energy = player:GetAttribute("Energy") or 100
+	energyBar(energy / 100); energyText.Text = "ÉNERGIE  " .. energy .. " / 100"
+	local unlocked = player:GetAttribute("ObservationUnlocked") or player:GetAttribute("ObservationTraining")
+	local charge = player:GetAttribute("ObservationCharges") or 3
+	local recharge = math.max(0, (player:GetAttribute("ObservationRechargeAt") or 0) - workspace:GetServerTimeNow())
+	hakiText.Text = unlocked and ("OBSERVATION  " .. charge .. "/3" .. (charge < 3 and ("  ·  " .. math.ceil(recharge) .. " s") or "") .. (player:GetAttribute("ObservationTraining") and " · dojo" or "")) or "Observation à débloquer"
+	local mode = player:GetAttribute("ArmamentMode") or "Off"
+	armamentText.Text = player:GetAttribute("ArmamentUnlocked") and ("ARMEMENT [H]  ·  " .. ({Off = "désactivé", Focus = "concentration", Guard = "garde"})[mode]) or "Armement à débloquer"
+	ammo.Text = player:GetAttribute("CombatStyle") == "Gun" and (player:GetAttribute("Reloading") and "RECHARGEMENT…" or ("MUNITIONS  " .. (player:GetAttribute("Ammo") or 0) .. "/6  ·  [R] recharger")) or ""
+	if root then
+		local closest, distance
+		for _, island in ipairs(Config.Islands) do
+			local gap = (Vector3.new(root.Position.X, 0, root.Position.Z) - Vector3.new(table.unpack(island.Position))).Magnitude
+			if not distance or gap < distance then closest, distance = island, gap end
+		end
+		region.Text = distance < closest.Radius + 80 and closest.Name or "Au large · " .. closest.Name
+	end
+end)
+player.CharacterAdded:Connect(close)
+task.spawn(function()
+	while not profile do request:FireServer("State"); task.wait(2) end
+end)

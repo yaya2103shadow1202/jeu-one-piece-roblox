@@ -1,75 +1,25 @@
-# Free asset shortlist for the project
+# Provenance des éléments visuels
 
-Goal: keep the game pirate/anime themed, R15 compatible, and avoid ripped copyrighted assets.
+## Intégrés dans Archipel 0.2
 
-These are **unverified candidates**, not imported assets. The first three listings have no published reviews as of September 2026. Their names and tags do not prove animation quality or usable AnimationIds. Inspect their actual contents and preview them on an R15 rig before selecting any of them. No animation asset is currently bundled with this repository.
+| Élément | Origine | Utilisation |
+| --- | --- | --- |
+| Îles, maisons, phares, quais, arbres, armes, bateaux et PNJ de dialogue | Géométrie originale produite par `Builders.lua` et `WorldService.lua` | Pièces Roblox natives, sans scripts de modèles tiers |
+| Effets de coups, tirs, Haki et Braises | Code original du projet | Effets locaux ; le rempart physique est créé par le serveur |
+| Rig des ennemis | API Roblox `Players:CreateHumanoidModelFromDescriptionAsync` | R15 ; rig R6 local de secours si la création échoue |
+| Marche des ennemis R15 | Animation Roblox par défaut `rbxassetid://507777826` | Identifiant cité dans la [documentation officielle de l'éditeur de graphes](https://github.com/Roblox/creator-docs/blob/main/content/en-us/animation/graph-editor.md) ; disponibilité dans l'expérience à vérifier dans Studio |
 
-## Combat animations (priority)
+Aucun pack d'animations de combat tiers n'est importé. Aucun mouvement de combat artificiel n'est appliqué aux Motor6D. Ceux du rig de secours servent uniquement à assembler le squelette.
 
-1. R15 Fighting Animations Pack Combo Moveset
-   - Creator Store asset: 112293652257087
-   - Free model
-   - Intended use: M1 combo, melee stance, dodge candidates.
+## Animations de combat à sélectionner
 
-2. Combat Animations R15 Fighting Punch Kick
-   - Creator Store asset: 72490332630186
-   - Free model
-   - Tags explicitly include dodge / evade / weave; useful for future Observation Haki QTE.
+Le client reconnaît des objets `Animation` dans `ReplicatedStorage.CombatAnimations` :
 
-3. R15 Fighting Animations Pack Combo Punch Kick
-   - Creator Store asset: 70925948463185
-   - Free model
-   - Backup candidate if the first two do not fit the style.
+- `M1_1`, `M1_2`, `M1_3`, `M1_4` pour les poings ;
+- `Sword_1`, `Sword_2`, `Sword_3`, `Sword_4` pour le sabre ;
+- `Gun_1` pour le tir ;
+- `ObservationDodgeRight` pour l'esquive actuelle.
 
-## Pirate / adventure identity
+La sélection doit se faire après visionnage sur un rig R15 et vérification des droits d'utilisation et des permissions de l'expérience. Importer uniquement les animations retenues, sans les scripts des packs. Tester leur durée par rapport au temps d'anticipation défini dans `Config.Styles`. Les anciennes pistes de packs gratuits étaient non vérifiées ; elles ne constituent pas des animations choisies ni une garantie de qualité.
 
-4. Pirate Animation Package
-   - Creator Store asset: 8175508596
-   - Free model, 27 animations.
-   - Test rig compatibility before use; candidate for pirate idle/emotes/locomotion.
-
-5. Sword Animations by Fancy Cat Games
-   - Creator Store asset: 77935648543779
-   - Free model, highly rated on the Creator Store.
-   - Candidate for the future swordsman fighting style.
-
-## VFX
-
-6. slash effect
-   - Creator Store asset: 9931893913
-   - Free model, highly rated.
-
-7. Aura Open Source Particle
-   - Creator Store asset: 10205305332
-   - Free to use / open source according to its listing.
-   - Candidate for Haki aura prototypes.
-
-8. VFX Studio plugin
-   - Creator Store asset: 135581141962270
-   - Free plugin, highly rated.
-   - Use to inspect/adapt VFX instead of building every effect manually.
-
-## Rules before importing any free model
-
-- Prefer R15 assets.
-- Inspect and remove every Script/LocalScript/ModuleScript that is not required.
-- Never run external EXE "Roblox modpacks" or launchers.
-- Avoid assets ripped directly from copyrighted games/anime.
-- Import only the animation/VFX/model parts we actually need, not entire systems blindly.
-- Keep damage, hitboxes, cooldowns and progression in our own server-authoritative code.
-
-## Expected animation names in ReplicatedStorage.CombatAnimations
-
-The current Combat client automatically uses Animation objects with these names when present:
-
-- M1_1
-- M1_2
-- M1_3
-- M1_4
-
-Reserved for the future Observation Haki system:
-
-- ObservationDodgeLeft
-- ObservationDodgeRight
-
-After testing a free pack, copy/rename only the selected Animation objects into ReplicatedStorage > CombatAnimations.
+Le projet vise un hommage avec ses propres îles et personnages. Il ne contient ni carte extraite d'un autre jeu, ni musique, modèle ou animation extrait de One Piece.
