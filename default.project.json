@@ -6,20 +6,29 @@
       "$className": "ReplicatedStorage",
       "Shared": {
         "$path": "src/shared"
+      },
+      "CombatRemotes": {
+        "$className": "Folder",
+        "M1": {
+          "$className": "RemoteEvent"
+        }
       }
     },
     "ServerScriptService": {
       "$className": "ServerScriptService",
-      "Server": {
-        "$path": "src/server"
+      "CombatServer": {
+        "$path": "src/server/CombatServer.server.lua"
       }
     },
     "StarterPlayer": {
       "$className": "StarterPlayer",
       "StarterPlayerScripts": {
         "$className": "StarterPlayerScripts",
-        "Client": {
-          "$path": "src/client"
+        "Movement": {
+          "$path": "src/client/Movement.client.lua"
+        },
+        "Combat": {
+          "$path": "src/client/Combat.client.lua"
         }
       }
     }
