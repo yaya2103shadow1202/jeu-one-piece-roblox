@@ -278,15 +278,16 @@ task.spawn(function()
 	end
 end)
 
-local function attack(player, requestedDirection)
-	local character = player.Character
+local function attack(attacker, requestedDirection)
+	local player = attacker:IsA("Player") and attacker or nil
+	local character = player and player.Character or attacker
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	if not humanoid or not root or humanoid.Health <= 0 then
 		return
 	end
 
-	local state = getState(player)
+	local state = getState(attacker)
 	local now = os.clock()
 	if now - state.lastAttack < ATTACK_COOLDOWN then
 		return
@@ -303,7 +304,7 @@ local function attack(player, requestedDirection)
 	local combo = state.combo
 	local damage = DAMAGE_BY_COMBO[combo]
 	local direction = sanitizeDirection(root, requestedDirection)
-	fxRemote:FireAllClients("Swing", player.UserId, combo, false)
+	fxRemote:FireAllClients("Swing", player and player.UserId or 0, combo, character)
 
 	local params = OverlapParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
@@ -346,7 +347,7 @@ local function attack(player, requestedDirection)
 			refreshCharges(targetPlayer, targetState, workspace:GetServerTimeNow())
 		end
 	end
-	if player.Character ~= character or humanoid.Health <= 0 or not root.Parent then
+	if (player and player.Character ~= character) or humanoid.Health <= 0 or not root.Parent then
 		for targetPlayer in pairs(warned) do
 			local targetState = stateByPlayer[targetPlayer]
 			if targetState then targetState.pending[attackId] = nil end
@@ -387,10 +388,86 @@ local function attack(player, requestedDirection)
 		if targetState then targetState.pending[attackId] = nil end
 	end
 
-	feedbackRemote:FireClient(player, combo, hitCount, dodgedCount, damageDone)
+	if player then
+		feedbackRemote:FireClient(player, combo, hitCount, dodgedCount, damageDone)
+	end
 end
 
 m1Remote.OnServerEvent:Connect(attack)
+
+-- Studio-only sparring dummy: exercises the same server hitbox and Observation path as PvP.
+if RunService:IsStudio() then
+	task.spawn(function()
+		local function nearestPlayer(position)
+			local nearestRoot, distance
+			for _, candidate in ipairs(Players:GetPlayers()) do
+				local model = candidate.Character
+				local targetHumanoid = model and model:FindFirstChildOfClass("Humanoid")
+				local targetRoot = model and model:FindFirstChild("HumanoidRootPart")
+				if targetHumanoid and targetHumanoid.Health > 0 and targetRoot then
+					local gap = (targetRoot.Position - position).Magnitude
+					if not distance or gap < distance then
+						nearestRoot, distance = targetRoot, gap
+					end
+				end
+			end
+			return nearestRoot, distance
+		end
+
+		while true do
+			local spawnRoot
+			repeat
+				task.wait(1)
+				spawnRoot = nearestPlayer(Vector3.zero)
+			until spawnRoot
+			local ok, dummy = pcall(function()
+				return Players:CreateHumanoidModelFromDescriptionAsync(
+					Instance.new("HumanoidDescription"), Enum.HumanoidRigType.R15)
+			end)
+			if not ok or not dummy then
+				warn("[CombatServer] Unable to create sparring dummy:", dummy)
+				task.wait(5)
+				continue
+			end
+			dummy.Name = "Dummy d'entraînement"
+			dummy.Parent = workspace
+			dummy:PivotTo(spawnRoot.CFrame * CFrame.new(0, 0, -12))
+			local dummyHumanoid = dummy:FindFirstChildOfClass("Humanoid")
+			local dummyRoot = dummy:FindFirstChild("HumanoidRootPart")
+			if not dummyHumanoid or not dummyRoot then
+				dummy:Destroy()
+				task.wait(5)
+				continue
+			end
+			dummyHumanoid.MaxHealth = 250
+			dummyHumanoid.Health = 250
+			dummyHumanoid.WalkSpeed = 14
+			pcall(function() dummyRoot:SetNetworkOwner(nil) end)
+
+			while dummy.Parent and dummyHumanoid.Health > 0 do
+				local targetRoot, distance = nearestPlayer(dummyRoot.Position)
+				if targetRoot and distance < 70 then
+					if distance > 5 then
+						dummyHumanoid:MoveTo(targetRoot.Position)
+					else
+						dummyHumanoid:MoveTo(dummyRoot.Position)
+						local direction = Vector3.new(
+							targetRoot.Position.X - dummyRoot.Position.X, 0,
+							targetRoot.Position.Z - dummyRoot.Position.Z)
+						if direction.Magnitude > 0.1 then
+							dummyRoot.CFrame = CFrame.lookAt(dummyRoot.Position, dummyRoot.Position + direction)
+							attack(dummy, direction.Unit)
+						end
+					end
+				end
+				task.wait(1.3)
+			end
+			stateByPlayer[dummy] = nil
+			dummy:Destroy()
+			task.wait(4)
+		end
+	end)
+end
 
 Players.PlayerRemoving:Connect(function(player)
 	stateByPlayer[player] = nil
