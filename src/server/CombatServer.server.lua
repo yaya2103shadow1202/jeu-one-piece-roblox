@@ -1,14 +1,16 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Debris = game:GetService("Debris")
 
 local remotes = ReplicatedStorage:WaitForChild("CombatRemotes")
 local m1Remote = remotes:WaitForChild("M1")
+local feedbackRemote = remotes:WaitForChild("M1Feedback")
 
-local ATTACK_COOLDOWN = 0.28
-local COMBO_RESET = 1.0
-local DAMAGE = 7
+local ATTACK_COOLDOWN = 0.30
+local COMBO_RESET = 1.10
 local HITBOX_SIZE = Vector3.new(6, 6, 7)
-local HITBOX_FORWARD = 3.5
+local HITBOX_FORWARD = 3.4
+local DAMAGE_BY_COMBO = {5, 5, 6, 9}
 
 local stateByPlayer = {}
 
@@ -23,6 +25,54 @@ local function getState(player)
 		stateByPlayer[player] = state
 	end
 	return state
+end
+
+local function showHitEffect(model, targetRoot, damage, combo)
+	local highlight = Instance.new("Highlight")
+	highlight.Name = "M1HitFlash"
+	highlight.FillTransparency = combo == 4 and 0.25 or 0.5
+	highlight.OutlineTransparency = 1
+	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	highlight.Parent = model
+	Debris:AddItem(highlight, 0.10)
+
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "M1DamageNumber"
+	billboard.Size = UDim2.fromOffset(90, 42)
+	billboard.StudsOffset = Vector3.new(0, 3.2, 0)
+	billboard.AlwaysOnTop = true
+	billboard.Adornee = targetRoot
+	billboard.Parent = targetRoot
+
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.fromScale(1, 1)
+	label.Text = "-" .. tostring(damage)
+	label.TextScaled = true
+	label.Font = Enum.Font.GothamBold
+	label.TextStrokeTransparency = 0.35
+	label.Parent = billboard
+
+	Debris:AddItem(billboard, 0.45)
+end
+
+local function applyKnockback(attackerRoot, targetRoot, combo)
+	local forward = attackerRoot.CFrame.LookVector
+	local mass = targetRoot.AssemblyMass
+
+	if combo == 4 then
+		targetRoot:ApplyImpulse(Vector3.new(
+			forward.X * mass * 42,
+			mass * 16,
+			forward.Z * mass * 42
+		))
+	else
+		targetRoot:ApplyImpulse(Vector3.new(
+			forward.X * mass * 5,
+			mass * 1.5,
+			forward.Z * mass * 5
+		))
+	end
 end
 
 local function attack(player)
@@ -45,6 +95,9 @@ local function attack(player)
 	state.lastComboTime = now
 	state.combo = (state.combo % 4) + 1
 
+	local combo = state.combo
+	local damage = DAMAGE_BY_COMBO[combo]
+
 	local params = OverlapParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = {character}
@@ -52,6 +105,7 @@ local function attack(player)
 	local hitboxCFrame = root.CFrame * CFrame.new(0, 0, -HITBOX_FORWARD)
 	local parts = workspace:GetPartBoundsInBox(hitboxCFrame, HITBOX_SIZE, params)
 	local hitHumanoids = {}
+	local hitCount = 0
 
 	for _, part in ipairs(parts) do
 		local model = part:FindFirstAncestorOfClass("Model")
@@ -64,25 +118,21 @@ local function attack(player)
 			and targetHumanoid.Health > 0
 			and not hitHumanoids[targetHumanoid]
 		then
-			hitHumanoids[targetHumanoid] = true
-			targetHumanoid:TakeDamage(DAMAGE)
+			local offset = targetRoot.Position - root.Position
+			local inFront = offset.Magnitude < 0.01
+				or root.CFrame.LookVector:Dot(offset.Unit) > -0.15
 
-			local forward = root.CFrame.LookVector
-			if state.combo == 4 then
-				targetRoot.AssemblyLinearVelocity = Vector3.new(
-					forward.X * 42,
-					18,
-					forward.Z * 42
-				)
-			else
-				targetRoot.AssemblyLinearVelocity += Vector3.new(
-					forward.X * 8,
-					2,
-					forward.Z * 8
-				)
+			if inFront then
+				hitHumanoids[targetHumanoid] = true
+				hitCount += 1
+				targetHumanoid:TakeDamage(damage)
+				applyKnockback(root, targetRoot, combo)
+				showHitEffect(model, targetRoot, damage, combo)
 			end
 		end
 	end
+
+	feedbackRemote:FireClient(player, combo, hitCount)
 end
 
 m1Remote.OnServerEvent:Connect(attack)
