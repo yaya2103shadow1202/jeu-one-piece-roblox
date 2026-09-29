@@ -1,6 +1,6 @@
 -- All progression/world definitions are owned by the server. No external model scripts.
 local Config = {}
-Config.Version = "Archipel 0.2"
+Config.Version = "Archipel 0.2.1"
 Config.MaxLevel = 30
 Config.SeaLevel = 0
 Config.Observation = {Window = 0.25, NetworkMargin = 0.12, Charges = 3, Recharge = 7, InputCooldown = 0.18}

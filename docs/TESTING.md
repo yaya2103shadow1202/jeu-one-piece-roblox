@@ -1,22 +1,27 @@
-# Vérifier Archipel 0.2
+# Vérifier Archipel 0.2.1
 
 ## Contrôles hors Roblox
 
 Depuis la racine du dépôt, avec les exécutables officiels [Luau](https://github.com/luau-lang/luau) et [Rojo](https://github.com/rojo-rbx/rojo) disponibles :
 
 ```sh
+# Après une modification de Builders, WorldService ou des définitions de carte :
+python tools/bake_world.py --luau /chemin/luau --rojo /chemin/rojo
 python tools/check.py --luau /chemin/luau --compiler /chemin/luau-compile
 python tools/preview_world.py --luau /chemin/luau --out /tmp/archipelago-world.json
-rojo build default.project.json -o /tmp/archipelago.rbxlx
+python tools/check_place.py --rojo /chemin/rojo
 git diff --check
 ```
 
-`check.py` compile les scripts, teste XP, limites des recettes, prérequis, progression et attribution des quêtes. Il teste aussi les refus d'écriture de sauvegarde après échec de chargement ou perte de session. `preview_world.py` exécute le constructeur de la carte avec un hôte géométrique pour vérifier les quatre points d'arrivée et 24 positions d'ennemis. Il exporte des volumes, pas une capture Roblox ; son calcul de sol ne remplace pas la physique et le pathfinding du moteur.
+`check.py` compile les scripts, teste XP, limites des recettes, prérequis, progression et attribution des quêtes. Il vérifie aussi les échecs du démarrage (module manquant, erreur de module, erreur de carte), le message répliqué et la reprise de l'apparition des personnages. Il teste les refus d'écriture de sauvegarde après échec de chargement ou perte de session. `preview_world.py` exécute le constructeur de la carte avec un hôte géométrique pour vérifier les quatre points d'arrivée et 24 positions d'ennemis. Il exporte des volumes, pas une capture Roblox ; son calcul de sol ne remplace pas la physique et le pathfinding du moteur.
+
+`check_place.py` construit le vrai fichier Rojo puis vérifie les quatre îles, les pièces, la taille de l'océan, les points d'apparition, les interactions, la version du modèle et la présence des scripts de démarrage. Il valide le fichier produit, sans lancer le moteur Roblox.
 
 ## Premier Play dans Studio — à effectuer
 
 | Parcours | Résultat attendu |
 | --- | --- |
+| Synchroniser hors Play | `Workspace/Archipelago` contient quatre îles ; décor visible avant le lancement |
 | Play, ouverture de Output | Aucune erreur ; arrivée à Port Brise-Azur, HUD lisible, quatre îles générées |
 | Marcher sur la place, le quai, les marches et entrer dans une maison | Pas de blocage du personnage ni d'apparition dans un volume |
 | Parler à Alma avec E, accepter la quête | Objectif 0/4, journal mis à jour |

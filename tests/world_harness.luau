@@ -54,7 +54,7 @@ local Color3={fromRGB=function(r,g,b) return setmetatable({r,g,b},colorMT) end,n
 local Enum=setmetatable({}, {__index=function(_,category) return setmetatable({}, {__index=function(_,name)return category..'.'..name end}) end})
 local Vector2={new=function(...) return {...} end}
 local UDim={new=function(...) return {...} end}
-local UDim2={fromOffset=function(...) return {...} end,fromScale=function(...) return {...} end}
+local UDim2={fromOffset=function(x,y) return {0,x,0,y} end,fromScale=function(x,y) return {x,0,y,0} end}
 local allParts={}
 local Instance={}
 local methods={}
@@ -65,11 +65,23 @@ function imt.__index(self,key)
  return self._props[key]
 end
 function imt.__newindex(self,key,value)
+	if key=='Size' and value.X then
+		assert(value.X>=0.001 and value.Y>=0.001 and value.Z>=0.001 and value.X<=2048 and value.Y<=2048 and value.Z<=2048,
+			'Roblox BasePart.Size must stay within 0.001..2048 studs')
+	end
+	if key=='Parent' and self._props.Parent then
+		local siblings=self._props.Parent._children
+		local index=table.find(siblings,self);if index then table.remove(siblings,index) end
+	end
  self._props[key]=value
  if key=='Parent' and value then table.insert(value._children,self) end
 end
 function Instance.new(class,parent)
- local o=setmetatable({_props={ClassName=class,CanCollide=true,Transparency=0,Shape='PartType.Block',Name=class},_children={},_attributes={}},imt)
+ local props={ClassName=class,Name=class}
+ if class=='Part' or class=='WedgePart' or class=='SpawnLocation' then
+  props.CanCollide,props.Transparency,props.Shape=true,0,'PartType.Block'
+ end
+ local o=setmetatable({_props=props,_children={},_attributes={}},imt)
  if class=='Part' or class=='WedgePart' or class=='SpawnLocation' then table.insert(allParts,o) end
  if parent then o.Parent=parent end
  return o
@@ -79,7 +91,7 @@ function methods:FindFirstChild(name) for _,o in ipairs(self._children) do if o.
 function methods:GetChildren() return self._children end
 function methods:SetAttribute(key,value) self._attributes[key]=value end
 function methods:GetAttribute(key) return self._attributes[key] end
-function methods:Destroy() self._props.Parent=nil end
+function methods:Destroy() self.Parent=nil end
 local Random={}
 function Random.new(seed)
  local r={seed=seed}

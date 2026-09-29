@@ -1,5 +1,13 @@
 # État du projet — 29 septembre 2026
 
+## Correctif 0.2.1 — écran vide signalé
+
+La capture montre Rojo connecté et un écran vide, sans Output. Elle ne permet pas d'identifier l'erreur exacte de la session utilisateur. Le dépôt 0.2 ne contenait aucune carte dans Workspace : tout dépendait de World.build au lancement. Une erreur après la désactivation de CharacterAutoLoads pouvait aussi laisser le joueur sans personnage.
+
+Le correctif ajoute un modèle natif `world/Archipelago.rbxm` synchronisé dans Workspace avant Play, avec 852 pièces, quatre arrivées et dix interactions PNJ. Le serveur réutilise ce modèle et restaure les repères de quêtes/ennemis. L'océan est découpé en neuf pièces de 2000 studs au lieu d'une pièce de 6000, au-delà de la limite de taille documentée par Roblox.
+
+Le démarrage attend les modules, capture ses erreurs et restaure CharacterAutoLoads en cas d'échec. Un LocalScript indépendant dans ReplicatedFirst affiche chargement, étape bloquée ou erreur, même avant l'apparition du personnage. Les contrôles incluent maintenant le modèle réellement construit par Rojo et les scénarios d'échec du bootstrap. La session Studio de l'utilisateur reste à observer après synchronisation.
+
 ## Direction retenue
 
 Construire un jeu Roblox d'aventure pirate inspiré de One Piece, avec une progression sérieuse sans fruit, un Haki exigeant, des armes distinctes et des fruits dont le joueur compose les techniques. Priorité à une boucle jouable, puis aux sensations et à la qualité visuelle.
@@ -29,4 +37,4 @@ Il reste à lancer les scénarios de [TESTING.md](TESTING.md) dans Studio, puis 
 
 ## Synchronisation
 
-Le dépôt est `yaya2103shadow1202/jeu-one-piece-roblox`. `auto-dev.bat` sert Rojo et suit la branche locale ouverte, avec fusion en avance rapide uniquement. La carte est générée au lancement du serveur. Les fichiers du dépôt sont la source du code ; ne pas annoncer une modification de la session Studio du joueur sans l'avoir observée.
+Le dépôt est `yaya2103shadow1202/jeu-one-piece-roblox`. `auto-dev.bat` sert Rojo et suit la branche locale ouverte, avec fusion en avance rapide uniquement. La carte est incluse dans le modèle natif du dépôt et visible dans l'éditeur. Régénérer ce modèle avec `tools/bake_world.py` après une modification du constructeur ; au lancement, le serveur relie le gameplay au modèle existant. Les fichiers du dépôt sont la source du code ; ne pas annoncer une modification de la session Studio du joueur sans l'avoir observée.

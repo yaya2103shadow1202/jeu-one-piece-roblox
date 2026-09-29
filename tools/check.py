@@ -42,4 +42,10 @@ with tempfile.TemporaryDirectory() as d:
     f = pathlib.Path(d) / 'data.luau'
     f.write_text(bundle)
     subprocess.run([a.luau, str(f)], check=True)
+harness = (ROOT / 'tests/boot_cases.luau').read_text()
+source = (ROOT / 'src/server/CombatServer.server.lua').read_text()
+with tempfile.TemporaryDirectory() as d:
+    f = pathlib.Path(d) / 'bootstrap.luau'
+    f.write_text(harness.replace('-- INSERT_BOOTSTRAP', source))
+    subprocess.run([a.luau, str(f)], check=True)
 print('Checks complete. Studio multiplayer/visual tests still required.')

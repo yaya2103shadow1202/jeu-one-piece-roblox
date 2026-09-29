@@ -2,6 +2,15 @@
   "name": "jeu-one-piece-roblox",
   "tree": {
     "$className": "DataModel",
+    "Workspace": {
+      "$className": "Workspace",
+      "$ignoreUnknownInstances": true,
+      "Archipelago": { "$path": "world/Archipelago.rbxm" }
+    },
+    "ReplicatedFirst": {
+      "$className": "ReplicatedFirst",
+      "Boot": { "$path": "src/first/Boot.client.lua" }
+    },
     "ReplicatedStorage": {
       "$className": "ReplicatedStorage",
       "Shared": { "$path": "src/shared" }

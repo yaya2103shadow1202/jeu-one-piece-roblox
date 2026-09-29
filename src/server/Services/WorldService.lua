@@ -5,13 +5,7 @@ local B = require(script.Parent.Builders)
 local V, C = Vector3.new, Color3.fromRGB
 local World = {Hubs = {}, Markers = {}}
 
-function World.build()
-	local previous = workspace:FindFirstChild("Archipelago")
-	if previous then previous:Destroy() end
-	local folder = Instance.new("Folder")
-	folder.Name, folder.Parent = "Archipelago", workspace
-	World.Folder = folder
-	-- Preserve user-built scenery; hide only the standard template baseplate.
+local function environment()
 	local baseplate = workspace:FindFirstChild("Baseplate")
 	if baseplate and baseplate:IsA("BasePart") then
 		baseplate.CanCollide, baseplate.CanQuery, baseplate.Transparency = false, false, 1
@@ -23,9 +17,65 @@ function World.build()
 	atmosphere.Name, atmosphere.Density, atmosphere.Offset = "ArchipelagoAtmosphere", 0.24, 0.15
 	atmosphere.Color, atmosphere.Decay = C(181, 213, 232), C(102, 132, 161)
 	atmosphere.Glare, atmosphere.Haze, atmosphere.Parent = 0.2, 1.2, Lighting
-	local ocean = B.part(folder, "Mer", V(6000, 3, 6000), CFrame.new(0, -2, -700), C(29, 111, 153), Enum.Material.Glass)
-	ocean.CanCollide, ocean.CanTouch, ocean.CanQuery = false, false, false
-	ocean.Transparency, ocean.Reflectance = 0.18, 0.15
+end
+
+local function child(parent, name)
+	local result = parent:FindFirstChild(name)
+	assert(result, "Carte incomplète : " .. parent.Name .. "." .. name)
+	return result
+end
+
+function World.bind(folder)
+	-- Bind gameplay to the same geometry visible in Studio, without deleting it.
+	World.Folder, World.Hubs, World.Markers = folder, {}, {}
+	for _, island in ipairs(Config.Islands) do
+		local root = child(folder, island.Id)
+		local origin = V(table.unpack(island.Position))
+		local questNPC = child(root, island.QuestNPC.Name)
+		local questRoot = child(questNPC, "Torso")
+		local ferryRoot = child(child(root, "Ivo · passeur"), "Torso")
+		World.Hubs[island.Id] = {Definition = island, Folder = root,
+			Spawn = CFrame.new(origin + V(table.unpack(island.Spawn))), SpawnLocation = child(root, island.Id .. "Spawn"),
+			QuestNPC = questNPC, QuestRoot = questRoot, QuestPrompt = child(questRoot, "ProximityPrompt"),
+			FerryRoot = ferryRoot, FerryPrompt = child(ferryRoot, "ProximityPrompt")}
+		for n = 1, 5 do
+			local angle = n * math.pi * 2 / 5
+			local center = origin + V(table.unpack(island.EnemyCenter))
+			table.insert(World.Markers, {Enemy = island.Enemy, Island = island.Id, Position = center + V(math.cos(angle) * 28, 1, math.sin(angle) * 28)})
+		end
+		table.insert(World.Markers, {Enemy = island.Boss, Island = island.Id, Position = origin + V(table.unpack(island.BossPosition)) + V(0, 1, 0)})
+	end
+	local port = World.Hubs.Port.Definition
+	World.TrainingPosition = V(table.unpack(port.Position)) + V(-88, port.Top + 4, -66)
+	local master = child(child(World.Hubs.Port.Folder, "Ren · maître d'armes"), "Torso")
+	World.Master = {Root = master, Prompt = child(master, "ProximityPrompt")}
+	local fruit = child(child(World.Hubs.Jungle.Folder, "Ena · chercheuse des fruits"), "Torso")
+	World.FruitNPC = {Root = fruit, Prompt = child(fruit, "ProximityPrompt")}
+	workspace:SetAttribute("ArchipelagoReady", true)
+	return World
+end
+
+function World.build(force)
+	local previous = workspace:FindFirstChild("Archipelago")
+	local version = previous and previous:FindFirstChild("WorldVersion")
+	environment()
+	if not force and version and version.Value == Config.Version then
+		local ok, result = pcall(World.bind, previous)
+		if ok then return result end
+		warn("[Archipelago] Rebuilding incomplete map:", result)
+	end
+	if previous then previous:Destroy() end
+	local folder = Instance.new("Folder")
+	folder.Name, folder.Parent = "Archipelago", workspace
+	World.Folder, World.Hubs, World.Markers = folder, {}, {}
+	-- BasePart dimensions are limited to 2048: tile the 6000-stud sea.
+	for x = -1, 1 do
+		for z = -1, 1 do
+			local ocean = B.part(folder, "Mer", V(2000, 3, 2000), CFrame.new(x * 2000, -2, z * 2000 - 700), C(29, 111, 153), Enum.Material.Glass)
+			ocean.CanCollide, ocean.CanTouch, ocean.CanQuery = false, false, false
+			ocean.Transparency, ocean.Reflectance = 0.18, 0.15
+		end
+	end
 	-- Light surface streaks give the sea scale without thousands of particles.
 	for i = 1, 90 do
 		local rng = Random.new(700 + i)
@@ -104,14 +154,6 @@ function World.build()
 		spawn.Parent = root
 		local sign = B.part(root, "Panneau", V(14, 6, 1), CFrame.new(pos(22, top + 5, 126)), B.Palette.DarkWood, Enum.Material.Wood)
 		B.label(sign, island.Name, "Niveau conseillé : " .. island.Level, B.Palette.Gold, 110)
-		World.Hubs[island.Id] = {Definition = island, Folder = root, Spawn = CFrame.new(origin + V(table.unpack(island.Spawn))), SpawnLocation = spawn,
-			QuestNPC = questNPC, QuestRoot = questRoot, QuestPrompt = questPrompt, FerryRoot = ferryRoot, FerryPrompt = ferryPrompt}
-		for n = 1, 5 do
-			local angle = n * math.pi * 2 / 5
-			local center = origin + V(table.unpack(island.EnemyCenter))
-			table.insert(World.Markers, {Enemy = island.Enemy, Island = island.Id, Position = center + V(math.cos(angle) * 28, 1, math.sin(angle) * 28)})
-		end
-		table.insert(World.Markers, {Enemy = island.Boss, Island = island.Id, Position = origin + V(table.unpack(island.BossPosition)) + V(0, 1, 0)})
 		for n = 1, 38 do
 			local x, z = rng:NextNumber(-radius + 45, radius - 45), rng:NextNumber(-radius + 45, radius - 45)
 			local reserved = math.abs(x) < 35 or (x > 35 and x < 145 and z > -110 and z < 50)
@@ -186,7 +228,8 @@ function World.build()
 		end
 		task.wait()
 	end
-	workspace:SetAttribute("ArchipelagoReady", true)
-	return World
+	local stamp = Instance.new("StringValue")
+	stamp.Name, stamp.Value, stamp.Parent = "WorldVersion", Config.Version, folder
+	return World.bind(folder)
 end
 return World

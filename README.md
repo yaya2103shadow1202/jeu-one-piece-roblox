@@ -1,4 +1,4 @@
-# Les Mers Libres — Archipel 0.2
+# Les Mers Libres — Archipel 0.2.1
 
 Un prototype Roblox d'aventure pirate inspiré de l'esprit de One Piece : liberté, exploration, maîtrise des armes et force de la volonté. Les lieux, personnages, constructions et effets de cette version sont originaux. L'objectif est de permettre un parcours complet avec les poings, le sabre et le Haki, sans obligation de prendre un fruit.
 
@@ -6,10 +6,12 @@ Cette livraison relie le combat existant à quatre îles, des ennemis, des quêt
 
 ## Lancer dans ton projet
 
-1. Laisse l'ancien `auto-dev.bat` récupérer la mise à jour, puis ferme les deux fenêtres Auto Sync et Rojo. Relance `auto-dev.bat` depuis le dossier habituel.
+1. **Arrête Play dans Studio.** Laisse `auto-dev.bat` récupérer la mise à jour, puis ferme les deux fenêtres Auto Sync et Rojo. Relance `auto-dev.bat` depuis le dossier habituel.
 2. Dans Studio, connecte le plugin Rojo au serveur local comme auparavant et accepte la synchronisation.
-3. Lance **Play**. La carte est construite au démarrage du serveur : elle n'apparaît pas encore dans l'éditeur lorsque Play est arrêté.
+3. La carte doit maintenant être présente **avant Play**, dans `Workspace → Archipelago`, avec les dossiers `Port`, `Jungle`, `Fort`, `Storm`. Lance ensuite **Play** : le serveur relie les quêtes et fait apparaître les ennemis dans ce décor.
 4. Sur la place, parle à **Alma avec E** pour prendre la première quête. Les pillards sont au nord-est ; le dojo et son dummy se trouvent à l'ouest. Le passeur attend au bout de la jetée au sud.
+
+Si la carte reste absente après reconnexion, vérifie le message de la fenêtre Auto Sync. Si le lancement bloque, un panneau indique l'étape ou l'erreur ; ouvre **Sortie / Output** pour le détail. Le serveur attend les modules synchronisés et réactive l'apparition des personnages en cas d'échec du démarrage.
 
 Le script suit désormais la branche Git ouverte (`main` ou `feature/observation-qte`) et ne force aucune fusion. S'il signale des modifications locales ou une divergence, il garde les fichiers en place et affiche la cause.
 
@@ -60,4 +62,4 @@ Les attaques fonctionnent avec des effets visuels, mais les animations corporell
 - [Scénarios de test Studio et contrôles automatisés](docs/TESTING.md)
 - [État du projet et prochaines étapes](docs/PROJECT_STATE.md)
 
-Les définitions d'îles, quêtes, ennemis et styles sont dans `src/shared/Config.lua`. La carte est dans `WorldService`, la progression dans `ProgressionService`, le combat dans `CombatService` et la sauvegarde dans `DataService`. Le client gère l'affichage et les entrées ; les récompenses, dégâts, coûts, munitions et déblocages sont validés par le serveur.
+Les définitions d'îles, quêtes, ennemis et styles sont dans `src/shared/Config.lua`. Le modèle de carte synchronisé est `world/Archipelago.rbxm`, généré depuis `WorldService` par `tools/bake_world.py`. `WorldService` relie ensuite les PNJ et zones au modèle existant ; la progression dans `ProgressionService`, le combat dans `CombatService` et la sauvegarde dans `DataService`. Le client gère l'affichage et les entrées ; les récompenses, dégâts, coûts, munitions et déblocages sont validés par le serveur.
