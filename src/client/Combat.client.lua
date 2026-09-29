@@ -1,4 +1,4 @@
--- Combat client: M1 input, temporary guard, external animation hooks and HUD feedback.
+-- Combat client: M1 input, Observation QTE, external animation hooks and HUD feedback.
 -- Gameplay-critical validation stays on the server.
 
 local Players = game:GetService("Players")
@@ -11,21 +11,20 @@ local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
 local mouse = player:GetMouse()
 
-local M1_COOLDOWN = 0.30
+local M1_COOLDOWN = 0.52
 local COMBO_RESET = 1.10
 
 local ready = true
-local blocking = false
 local localCombo = 0
 local lastLocalAttack = 0
-local guardHighlight
-local guardShield
-local guardTween
+local warningId
+local warningDeadline = 0
+local lastObservationInput = 0
 
 local remotes = ReplicatedStorage:WaitForChild("CombatRemotes")
 local m1Remote = remotes:WaitForChild("M1")
 local feedbackRemote = remotes:WaitForChild("M1Feedback")
-local blockRemote = remotes:WaitForChild("BlockState")
+local observationRemote = remotes:WaitForChild("Observation")
 local fxRemote = remotes:WaitForChild("CombatFX")
 
 local animationCache = setmetatable({}, {__mode = "k"})
@@ -339,78 +338,75 @@ local function showDamageHUD(combo, hitCount, damageDone)
 	end)
 end
 
-local function destroyGuardVisual()
-	if guardTween then
-		guardTween:Cancel()
-		guardTween = nil
-	end
-	if guardHighlight then
-		guardHighlight:Destroy()
-		guardHighlight = nil
-	end
-	if guardShield then
-		guardShield:Destroy()
-		guardShield = nil
-	end
+local function createObservationHUD()
+	local gui = player:WaitForChild("PlayerGui"):WaitForChild("CombatHUD")
+	local prompt = Instance.new("TextLabel")
+	prompt.Name = "ObservationPrompt"
+	prompt.AnchorPoint = Vector2.new(0.5, 0.5)
+	prompt.Position = UDim2.fromScale(0.5, 0.68)
+	prompt.Size = UDim2.fromOffset(280, 72)
+	prompt.BackgroundColor3 = Color3.fromRGB(18, 32, 50)
+	prompt.BackgroundTransparency = 0.15
+	prompt.TextColor3 = Color3.fromRGB(170, 230, 255)
+	prompt.Font = Enum.Font.GothamBlack
+	prompt.TextSize = 24
+	prompt.Text = "F  •  ESQUIVE"
+	prompt.Visible = false
+	prompt.Parent = gui
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 12)
+	corner.Parent = prompt
+	local charges = Instance.new("TextLabel")
+	charges.Name = "ObservationCharges"
+	charges.AnchorPoint = Vector2.new(0, 1)
+	charges.Position = UDim2.new(0, 18, 1, -20)
+	charges.Size = UDim2.fromOffset(200, 30)
+	charges.BackgroundTransparency = 1
+	charges.TextColor3 = Color3.fromRGB(170, 230, 255)
+	charges.TextXAlignment = Enum.TextXAlignment.Left
+	charges.Font = Enum.Font.GothamBold
+	charges.TextSize = 17
+	charges.Parent = gui
+	return prompt, charges
 end
 
-local function setLocalGuardVisual(enabled)
-	destroyGuardVisual()
-	if not enabled then
-		return
-	end
-
+local observationPrompt, chargesLabel = createObservationHUD()
+local function updateCharges()
 	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart")
-	if not character or not root then
-		return
-	end
-
-	local highlight = Instance.new("Highlight")
-	highlight.Name = "LocalGuardHighlight"
-	highlight.FillColor = Color3.fromRGB(55, 125, 220)
-	highlight.OutlineColor = Color3.fromRGB(190, 230, 255)
-	highlight.FillTransparency = 0.90
-	highlight.OutlineTransparency = 0.30
-	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-	highlight.Parent = character
-	guardHighlight = highlight
-
-	local shield = Instance.new("Part")
-	shield.Name = "LocalGuardShield"
-	shield.Shape = Enum.PartType.Cylinder
-	shield.Material = Enum.Material.Neon
-	shield.Color = Color3.fromRGB(110, 195, 255)
-	shield.Transparency = 0.82
-	shield.Size = Vector3.new(0.10, 3.8, 3.8)
-	shield.CanCollide = false
-	shield.CanQuery = false
-	shield.CanTouch = false
-	shield.Massless = true
-	shield.CFrame = root.CFrame * CFrame.new(0, 0.8, -2.0)
-	shield.Parent = character
-
-	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = root
-	weld.Part1 = shield
-	weld.Parent = shield
-
-	guardShield = shield
-	guardTween = TweenService:Create(shield, TweenInfo.new(0.42, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
-		Transparency = 0.91,
-		Size = Vector3.new(0.10, 4.05, 4.05),
-	})
-	guardTween:Play()
+	local count = character and character:GetAttribute("ObservationCharges") or 3
+	chargesLabel.Visible = player:GetAttribute("ObservationUnlocked") == true
+	chargesLabel.Text = "OBSERVATION  " .. tostring(count) .. "/3"
 end
+player:GetAttributeChangedSignal("ObservationUnlocked"):Connect(updateCharges)
 
-local function setBlocking(enabled)
-	if blocking == enabled then
-		return
+observationRemote.OnClientEvent:Connect(function(action, attackId, value, count)
+	if action == "Warning" then
+		if not player:GetAttribute("ObservationUnlocked") then return end
+		warningId = attackId
+		warningDeadline = value - 0.12
+		observationPrompt.Visible = false
+		observationPrompt.Text = "F  •  ESQUIVE"
+		local currentId = attackId
+		task.delay(math.max(0, warningDeadline - 0.25 - workspace:GetServerTimeNow()), function()
+			if warningId == currentId then observationPrompt.Visible = true end
+		end)
+		task.delay(math.max(0, warningDeadline - workspace:GetServerTimeNow()), function()
+			if warningId == currentId then
+				warningId = nil
+				observationPrompt.Visible = false
+			end
+		end)
+	elseif action == "Success" then
+		chargesLabel.Text = "OBSERVATION  " .. tostring(value) .. "/3"
+		if warningId == attackId then
+			warningId = nil
+			observationPrompt.Text = "ESQUIVÉ !"
+			task.delay(0.35, function()
+				if warningId == nil then observationPrompt.Visible = false end
+			end)
+		end
 	end
-	blocking = enabled
-	setLocalGuardVisual(enabled)
-	blockRemote:FireServer(enabled)
-end
+end)
 
 local function predictCombo()
 	local now = os.clock()
@@ -423,7 +419,7 @@ local function predictCombo()
 end
 
 local function attack()
-	if not ready or blocking then
+	if not ready then
 		return
 	end
 
@@ -448,33 +444,34 @@ end
 mouse.Button1Down:Connect(attack)
 
 UserInputService.InputBegan:Connect(function(input, processed)
-	if processed then
+	if processed or input.KeyCode ~= Enum.KeyCode.F or not warningId then
 		return
 	end
-
-	-- Temporary guard input. This will be replaced by the Observation Haki QTE system.
-	if input.KeyCode == Enum.KeyCode.F then
-		setBlocking(true)
+	local now = workspace:GetServerTimeNow()
+	if now < warningDeadline - 0.25 or now > warningDeadline
+		or now - lastObservationInput < 0.18 then
+		return
 	end
+	lastObservationInput = now
+	observationRemote:FireServer(warningId)
 end)
 
-UserInputService.InputEnded:Connect(function(input)
-	if input.KeyCode == Enum.KeyCode.F then
-		setBlocking(false)
-	end
-end)
-
-player.CharacterAdded:Connect(function()
-	blocking = false
+player.CharacterAdded:Connect(function(character)
 	ready = true
 	localCombo = 0
 	lastLocalAttack = 0
 	hudDamage = 0
 	hudHits = 0
+	warningId = nil
+	observationPrompt.Visible = false
 	damageFrame.Visible = false
-	destroyGuardVisual()
-	blockRemote:FireServer(false)
+	character:GetAttributeChangedSignal("ObservationCharges"):Connect(updateCharges)
+	updateCharges()
 end)
+if player.Character then
+	player.Character:GetAttributeChangedSignal("ObservationCharges"):Connect(updateCharges)
+end
+updateCharges()
 
 local function findPlayerByUserId(userId)
 	for _, otherPlayer in ipairs(Players:GetPlayers()) do
@@ -495,21 +492,21 @@ fxRemote.OnClientEvent:Connect(function(action, userId, combo, extra)
 			playSwingVisual(attacker.Character, combo)
 		end
 	elseif action == "Impact" then
-		local blocked = extra == true
+		local dodged = extra == true
 		if userId == player.UserId then
-			cameraImpact(blocked and 0.20 or (combo == 4 and 0.32 or 0.16), blocked and 0.07 or 0.09)
+			cameraImpact(dodged and 0.20 or (combo == 4 and 0.32 or 0.16), dodged and 0.07 or 0.09)
 		end
 	end
 end)
 
-feedbackRemote.OnClientEvent:Connect(function(combo, hitCount, blockedCount, damageDone)
+feedbackRemote.OnClientEvent:Connect(function(combo, hitCount, dodgedCount, damageDone)
 	localCombo = combo or localCombo
 	if (hitCount or 0) > 0 then
 		showDamageHUD(combo or 1, hitCount or 0, damageDone or 0)
 		cameraImpact(combo == 4 and 0.38 or 0.20, combo == 4 and 0.10 or 0.07)
-	elseif (blockedCount or 0) > 0 then
+	elseif (dodgedCount or 0) > 0 then
 		cameraImpact(0.14, 0.06)
 	end
 end)
 
-print("[CombatClient] ready - external animation hooks + HUD damage counter")
+print("[CombatClient] ready - Observation QTE + HUD damage counter")
