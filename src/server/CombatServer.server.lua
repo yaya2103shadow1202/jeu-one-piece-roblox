@@ -1,4 +1,4 @@
--- Server-authoritative combat prototype: M1 + guard + replicated impact FX.
+-- Server-authoritative combat prototype: M1 + temporary guard + replicated impact FX.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -154,7 +154,7 @@ local function makeImpactStreaks(position, combo, blocked)
 	end
 end
 
-local function showHitEffect(model, targetPart, damage, combo)
+local function showHitEffect(model, targetPart, combo)
 	local highlight = Instance.new("Highlight")
 	highlight.Name = "M1HitFlash"
 	highlight.FillColor = combo == 4 and Color3.fromRGB(255, 215, 125) or Color3.fromRGB(255, 245, 220)
@@ -169,30 +169,6 @@ local function showHitEffect(model, targetPart, damage, combo)
 		makeShockwave(targetPart.Position, combo, false)
 		makeImpactStreaks(targetPart.Position, combo, false)
 	end
-
-	if not targetPart then
-		return
-	end
-
-	local billboard = Instance.new("BillboardGui")
-	billboard.Name = "M1DamageNumber"
-	billboard.Size = UDim2.fromOffset(combo == 4 and 105 or 82, combo == 4 and 48 or 38)
-	billboard.StudsOffset = Vector3.new(0, combo == 4 and 3.5 or 3.0, 0)
-	billboard.AlwaysOnTop = true
-	billboard.Adornee = targetPart
-	billboard.Parent = targetPart
-
-	local label = Instance.new("TextLabel")
-	label.BackgroundTransparency = 1
-	label.Size = UDim2.fromScale(1, 1)
-	label.Text = "-" .. tostring(damage)
-	label.TextColor3 = combo == 4 and Color3.fromRGB(255, 220, 130) or Color3.fromRGB(255, 255, 255)
-	label.TextScaled = true
-	label.Font = Enum.Font.GothamBold
-	label.TextStrokeTransparency = 0.18
-	label.Parent = billboard
-
-	Debris:AddItem(billboard, combo == 4 and 0.60 or 0.45)
 end
 
 local function showBlockEffect(model, targetRoot)
@@ -334,6 +310,7 @@ local function attack(player, requestedDirection)
 	local alreadyHit = {}
 	local hitCount = 0
 	local blockedCount = 0
+	local damageDone = 0
 
 	for _, part in ipairs(parts) do
 		local model = part:FindFirstAncestorOfClass("Model")
@@ -357,15 +334,16 @@ local function attack(player, requestedDirection)
 				fxRemote:FireAllClients("Impact", targetPlayer and targetPlayer.UserId or 0, combo, true)
 			else
 				hitCount += 1
+				damageDone += damage
 				targetHumanoid:TakeDamage(damage)
 				applyKnockback(direction, targetRoot, combo)
-				showHitEffect(model, targetPart, damage, combo)
+				showHitEffect(model, targetPart, combo)
 				fxRemote:FireAllClients("Impact", targetPlayer and targetPlayer.UserId or 0, combo, false)
 			end
 		end
 	end
 
-	feedbackRemote:FireClient(player, combo, hitCount, blockedCount)
+	feedbackRemote:FireClient(player, combo, hitCount, blockedCount, damageDone)
 end
 
 m1Remote.OnServerEvent:Connect(attack)
@@ -375,4 +353,4 @@ Players.PlayerRemoving:Connect(function(player)
 	stateByPlayer[player] = nil
 end)
 
-print("[CombatServer] ready - stylized combat FX enabled")
+print("[CombatServer] ready - HUD damage feedback enabled")
