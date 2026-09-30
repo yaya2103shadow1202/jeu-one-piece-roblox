@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local UI = require(script.Parent:WaitForChild("UI"))
 local Config = require(ReplicatedStorage:WaitForChild("ArchipelagoShared"):WaitForChild("Config"))
 local Rules = require(ReplicatedStorage:WaitForChild("ArchipelagoShared"):WaitForChild("Rules"))
@@ -226,26 +227,43 @@ local function showSettings()
 end
 
 -- Interface principale inspirée du dessin fourni : commandes et jauges en bas au centre.
-local dock = UI.round(UI.frame(canvas, "MainDock", 430, 600, 420, 58, Color3.fromRGB(247, 221, 75)), 29)
+local dock = UI.round(UI.frame(canvas, "MainDock", 410, 594, 460, 66, Color3.fromRGB(20, 25, 29)), 18)
+UI.stroke(dock, Color3.fromRGB(204, 170, 91)).Transparency = 0.2
+local dockGradient = Instance.new("UIGradient")
+dockGradient.Color = ColorSequence.new(Color3.fromRGB(39, 45, 49), Color3.fromRGB(17, 21, 25))
+dockGradient.Rotation, dockGradient.Parent = 90, dock
 local dockButtons = {
-	{"🎒", "Sac", showInventory}, {"🛒", "Boutique", showShop},
-	{"🌍", "Monde", showMap}, {"⚙", "Réglages", showSettings},
+	{"SAC", "Sac", showInventory}, {"BOUTIQUE", "Boutique", showShop},
+	{"CARTE", "Carte", showMap}, {"RÉGLAGES", "Réglages", showSettings},
 }
 for i, definition in ipairs(dockButtons) do
-	local button = UI.button(dock, definition[1], 12 + (i - 1) * 102, 5, 90, 48, definition[3], Color3.fromRGB(247, 221, 75))
-	button.Name, button.TextSize, button.TextColor3 = definition[2], 29, Color3.fromRGB(8, 12, 15)
+	local button = UI.button(dock, definition[1], 8 + (i - 1) * 112, 7, 108, 52, definition[3], Color3.fromRGB(31, 37, 42))
+	button.Name, button.TextSize, button.TextColor3 = definition[2], 12, Color3.fromRGB(226, 208, 161)
+	UI.stroke(button, Color3.fromRGB(204, 170, 91)).Transparency = 0.62
+	button.MouseEnter:Connect(function()
+		TweenService:Create(button, TweenInfo.new(0.12), {BackgroundColor3 = Color3.fromRGB(64, 57, 42), TextColor3 = Color3.fromRGB(255, 237, 184)}):Play()
+	end)
+	button.MouseLeave:Connect(function()
+		TweenService:Create(button, TweenInfo.new(0.12), {BackgroundColor3 = Color3.fromRGB(31, 37, 42), TextColor3 = Color3.fromRGB(226, 208, 161)}):Play()
+	end)
 end
-local energyTrack = UI.round(UI.frame(canvas, "EnergyTrack", 430, 660, 420, 30, Color3.fromRGB(36, 208, 231)), 15)
-local energyFill = UI.round(UI.frame(energyTrack, "Fill", 0, 0, 420, 30, Color3.fromRGB(36, 208, 231)), 15)
+local energyTrack = UI.round(UI.frame(canvas, "EnergyTrack", 430, 666, 420, 27, Color3.fromRGB(24, 36, 42)), 8)
+local energyFill = UI.round(UI.frame(energyTrack, "Fill", 0, 0, 420, 27, Color3.fromRGB(42, 174, 200)), 8)
 energyTrack.ClipsDescendants = true
-local energyText = UI.text(energyTrack, "100% ÉNERGIE", 0, 0, 420, 30, 18, Color3.fromRGB(5, 14, 17), true)
+local energyGradient = Instance.new("UIGradient")
+energyGradient.Color = ColorSequence.new(Color3.fromRGB(91, 218, 226), Color3.fromRGB(27, 139, 181))
+energyGradient.Parent = energyFill
+local energyText = UI.text(energyTrack, "100% ÉNERGIE", 0, 0, 420, 27, 13, Color3.fromRGB(238, 247, 246), true)
 energyText.TextXAlignment = Enum.TextXAlignment.Center
-local healthTrack = UI.round(UI.frame(canvas, "HealthTrack", 430, 692, 420, 30, Color3.fromRGB(54, 214, 103)), 15)
-local healthFill = UI.round(UI.frame(healthTrack, "Fill", 0, 0, 420, 30, Color3.fromRGB(54, 214, 103)), 15)
+local healthTrack = UI.round(UI.frame(canvas, "HealthTrack", 430, 696, 420, 27, Color3.fromRGB(27, 39, 32)), 8)
+local healthFill = UI.round(UI.frame(healthTrack, "Fill", 0, 0, 420, 27, Color3.fromRGB(56, 175, 91)), 8)
 healthTrack.ClipsDescendants = true
-local hpText = UI.text(healthTrack, "100% VIE", 0, 0, 420, 30, 18, Color3.fromRGB(5, 14, 17), true)
+local healthGradient = Instance.new("UIGradient")
+healthGradient.Color = ColorSequence.new(Color3.fromRGB(102, 207, 118), Color3.fromRGB(42, 142, 78))
+healthGradient.Parent = healthFill
+local hpText = UI.text(healthTrack, "100% VIE", 0, 0, 420, 27, 13, Color3.fromRGB(244, 248, 239), true)
 hpText.TextXAlignment = Enum.TextXAlignment.Center
-local quickbar = UI.round(UI.frame(canvas, "PlayerInventory", 430, 726, 420, 62, Color3.fromRGB(16, 29, 42)), 12)
+local quickbar = UI.round(UI.frame(canvas, "PlayerInventory", 430, 727, 420, 61, Color3.fromRGB(17, 22, 26)), 12)
 UI.stroke(quickbar, Color3.fromRGB(247, 221, 75))
 styleButtons.Fists = UI.button(quickbar, "1  POINGS", 8, 7, 128, 48, function() request:FireServer("Equip", "Fists") end)
 UI.button(quickbar, "2  FRUIT", 146, 7, 128, 48, showTechnique, Color3.fromRGB(107, 89, 61))
