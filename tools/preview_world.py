@@ -12,7 +12,7 @@ for name,path in [('Config','src/shared/Config.lua'),('B','src/server/Services/B
   s=s.replace('local Config = require(ReplicatedStorage.ArchipelagoShared.Config)','').replace('local B = require(script.Parent.Builders)','')
  source+='\nlocal '+name+' = (function()\n'+s+'\nend)()\n'
 source+='''
-World.build()
+World.generateForBake()
 assert(#World.Markers == 24, "24 enemy spawns")
 local function floorAt(position)
  local height=-math.huge

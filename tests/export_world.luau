@@ -27,8 +27,10 @@ local function visit(instance)
 end
 visit(World.Folder)
 local count = #allParts
-World.build() -- Exercise the existing-model path. It must not append or recreate geometry.
+local folder = World.Folder
+World.load() -- Runtime path: bind the permanent model without appending or recreating geometry.
 assert(#allParts == count, "binding a baked map must not rebuild it")
+assert(World.Folder == folder, "runtime loading must preserve the permanent map instance")
 assert(#World.Markers == 24, "binding must restore enemy markers")
 local function export(instance)
 	local props, children = {}, {}

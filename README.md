@@ -8,7 +8,7 @@ Cette livraison relie le combat existant à quatre îles, des ennemis, des quêt
 
 1. **Arrête Play dans Studio.** Laisse `auto-dev.bat` récupérer la mise à jour, puis ferme les deux fenêtres Auto Sync et Rojo. Relance `auto-dev.bat` depuis le dossier habituel.
 2. Dans Studio, connecte le plugin Rojo au serveur local comme auparavant et accepte la synchronisation.
-3. La carte doit maintenant être présente **avant Play**, dans `Workspace → Archipelago`, avec les dossiers `Port`, `Jungle`, `Fort`, `Storm`. Lance ensuite **Play** : le serveur relie les quêtes et fait apparaître les ennemis dans ce décor.
+3. Sans lancer Play, la carte doit être présente dans `Workspace → Archipelago`, avec les dossiers `Port`, `Jungle`, `Fort`, `Storm`. Elle est enregistrée dans le modèle natif `world/Archipelago.rbxm` et peut être sélectionnée et modifiée dans Studio. Lance ensuite **Play** : le serveur relie les quêtes et fait apparaître les ennemis dans ce décor sans le recréer.
 4. Sur la place, parle à **Alma avec E** pour prendre la première quête. Les pillards sont au nord-est ; le dojo et son dummy se trouvent à l'ouest. Le passeur attend au bout de la jetée au sud.
 
 Après le correctif du module manquant, vérifie aussi `ReplicatedStorage → ArchipelagoShared` : il doit contenir les **ModuleScripts Config et Rules**. Les fichiers sont déclarés explicitement dans `default.project.json`. Le gameplay ne dépend plus d'un éventuel ancien dossier `Shared`.
@@ -64,4 +64,4 @@ Les attaques fonctionnent avec des effets visuels, mais les animations corporell
 - [Scénarios de test Studio et contrôles automatisés](docs/TESTING.md)
 - [État du projet et prochaines étapes](docs/PROJECT_STATE.md)
 
-Les définitions d'îles, quêtes, ennemis et styles sont dans `src/shared/Config.lua`. Le modèle de carte synchronisé est `world/Archipelago.rbxm`, généré depuis `WorldService` par `tools/bake_world.py`. `WorldService` relie ensuite les PNJ et zones au modèle existant ; la progression dans `ProgressionService`, le combat dans `CombatService` et la sauvegarde dans `DataService`. Le client gère l'affichage et les entrées ; les récompenses, dégâts, coûts, munitions et déblocages sont validés par le serveur.
+Les définitions d'îles, quêtes, ennemis et styles sont dans `src/shared/Config.lua`. Le modèle permanent synchronisé est `world/Archipelago.rbxm`, fabriqué hors jeu par `tools/bake_world.py`. Pendant Play, `WorldService.load()` valide et relie uniquement les PNJ et zones déjà présents dans `Workspace` ; il ne supprime et ne génère aucune partie de la carte. La progression est dans `ProgressionService`, le combat dans `CombatService` et la sauvegarde dans `DataService`. Le client gère l'affichage et les entrées ; les récompenses, dégâts, coûts, munitions et déblocages sont validés par le serveur.

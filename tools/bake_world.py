@@ -86,7 +86,7 @@ def main():
         if name == 'World':
             s = s.replace('local Config = require(ReplicatedStorage.ArchipelagoShared.Config)', '').replace('local B = require(script.Parent.Builders)', '')
         source += '\nlocal ' + name + ' = (function()\n' + s + '\nend)()\n'
-    source += '\nWorld.build()\n' + (ROOT / 'tests/export_world.luau').read_text()
+    source += '\nWorld.generateForBake()\n' + (ROOT / 'tests/export_world.luau').read_text()
     output = pathlib.Path(a.out).resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as d:

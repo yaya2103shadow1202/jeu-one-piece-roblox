@@ -55,7 +55,20 @@ function World.bind(folder)
 	return World
 end
 
-function World.build(force)
+function World.load()
+	environment()
+	local folder = workspace:FindFirstChild("Archipelago")
+	assert(folder, "Carte permanente absente : synchronise Workspace.Archipelago avec Rojo avant de lancer Play")
+	local version = folder:FindFirstChild("WorldVersion")
+	assert(version, "Carte permanente incomplète : Archipelago.WorldVersion est absent")
+	assert(version.Value == Config.Version,
+		"Carte permanente obsolète : synchronise la version " .. Config.Version .. " avant de lancer Play")
+	return World.bind(folder)
+end
+
+-- Utilisé seulement par tools/bake_world.py pour fabriquer le modèle natif .rbxm.
+-- Le serveur de jeu appelle World.load et ne crée jamais de décor pendant Play.
+function World.generateForBake(force)
 	local previous = workspace:FindFirstChild("Archipelago")
 	local version = previous and previous:FindFirstChild("WorldVersion")
 	environment()

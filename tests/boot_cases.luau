@@ -29,7 +29,7 @@ local function scenario(failure)
 		GetPlayers = function() return failure and {stranded} or {} end}
 	local fakeData = {Profiles = {}, init = function() end, start = function() end}
 	models[scripts.Services.DataService] = fakeData
-	models[scripts.Services.WorldService] = {build = function() if failure == "map" then error("map failure") end end}
+	models[scripts.Services.WorldService] = {load = function() if failure == "map" then error("map failure") end end}
 	models[scripts.Services.CombatService] = {init = function() end}
 	models[scripts.Services.NPCService] = {init = function() end}
 	models[scripts.Services.ProgressionService] = {init = function() end}
