@@ -1,6 +1,6 @@
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Config = require(ReplicatedStorage.Shared.Config)
+local Config = require(ReplicatedStorage.ArchipelagoShared.Config)
 local B = require(script.Parent.Builders)
 local V, C = Vector3.new, Color3.fromRGB
 local World = {Hubs = {}, Markers = {}}

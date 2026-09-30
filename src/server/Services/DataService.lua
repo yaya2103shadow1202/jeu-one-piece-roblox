@@ -3,8 +3,8 @@ local DataStoreService = game:GetService("DataStoreService")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Config = require(ReplicatedStorage.Shared.Config)
-local Rules = require(ReplicatedStorage.Shared.Rules)
+local Config = require(ReplicatedStorage.ArchipelagoShared.Config)
+local Rules = require(ReplicatedStorage.ArchipelagoShared.Rules)
 local Data = {Profiles = {}, Sessions = {}}
 local sessionId = game.JobId ~= "" and game.JobId or HttpService:GenerateGUID(false)
 local store

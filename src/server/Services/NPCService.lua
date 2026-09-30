@@ -1,7 +1,7 @@
 local Players = game:GetService("Players")
 local PathfindingService = game:GetService("PathfindingService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Config = require(ReplicatedStorage.Shared.Config)
+local Config = require(ReplicatedStorage.ArchipelagoShared.Config)
 local B = require(script.Parent.Builders)
 local NPC = {Actors = {}}
 local function fallbackRig()

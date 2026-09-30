@@ -15,13 +15,14 @@ git diff --check
 
 `check.py` compile les scripts, teste XP, limites des recettes, prérequis, progression et attribution des quêtes. Il vérifie aussi les échecs du démarrage (module manquant, erreur de module, erreur de carte), le message répliqué et la reprise de l'apparition des personnages. Il teste les refus d'écriture de sauvegarde après échec de chargement ou perte de session. `preview_world.py` exécute le constructeur de la carte avec un hôte géométrique pour vérifier les quatre points d'arrivée et 24 positions d'ennemis. Il exporte des volumes, pas une capture Roblox ; son calcul de sol ne remplace pas la physique et le pathfinding du moteur.
 
-`check_place.py` construit le vrai fichier Rojo puis vérifie les quatre îles, les pièces, la taille de l'océan, les points d'apparition, les interactions, la version du modèle et la présence des scripts de démarrage. Il valide le fichier produit, sans lancer le moteur Roblox.
+`check_place.py` construit le vrai fichier Rojo puis vérifie les quatre îles, les pièces, la taille de l'océan, les points d'apparition, les interactions, la version du modèle et la présence et le contenu exact des 14 scripts/modules, notamment Config et Rules dans ArchipelagoShared. Il valide le fichier produit, sans lancer le moteur Roblox.
 
 ## Premier Play dans Studio — à effectuer
 
 | Parcours | Résultat attendu |
 | --- | --- |
 | Synchroniser hors Play | `Workspace/Archipelago` contient quatre îles ; décor visible avant le lancement |
+| Modules après synchronisation | `ReplicatedStorage/ArchipelagoShared` contient Config et Rules, tous deux ModuleScripts |
 | Play, ouverture de Output | Aucune erreur ; arrivée à Port Brise-Azur, HUD lisible, quatre îles générées |
 | Marcher sur la place, le quai, les marches et entrer dans une maison | Pas de blocage du personnage ni d'apparition dans un volume |
 | Parler à Alma avec E, accepter la quête | Objectif 0/4, journal mis à jour |

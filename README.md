@@ -11,6 +11,8 @@ Cette livraison relie le combat existant à quatre îles, des ennemis, des quêt
 3. La carte doit maintenant être présente **avant Play**, dans `Workspace → Archipelago`, avec les dossiers `Port`, `Jungle`, `Fort`, `Storm`. Lance ensuite **Play** : le serveur relie les quêtes et fait apparaître les ennemis dans ce décor.
 4. Sur la place, parle à **Alma avec E** pour prendre la première quête. Les pillards sont au nord-est ; le dojo et son dummy se trouvent à l'ouest. Le passeur attend au bout de la jetée au sud.
 
+Après le correctif du module manquant, vérifie aussi `ReplicatedStorage → ArchipelagoShared` : il doit contenir les **ModuleScripts Config et Rules**. Les fichiers sont déclarés explicitement dans `default.project.json`. Le gameplay ne dépend plus d'un éventuel ancien dossier `Shared`.
+
 Si la carte reste absente après reconnexion, vérifie le message de la fenêtre Auto Sync. Si le lancement bloque, un panneau indique l'étape ou l'erreur ; ouvre **Sortie / Output** pour le détail. Le serveur attend les modules synchronisés et réactive l'apparition des personnages en cas d'échec du démarrage.
 
 Le script suit désormais la branche Git ouverte (`main` ou `feature/observation-qte`) et ne force aucune fusion. S'il signale des modifications locales ou une divergence, il garde les fichiers en place et affiche la cause.

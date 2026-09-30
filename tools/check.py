@@ -17,8 +17,8 @@ rules = (ROOT / 'src/shared/Rules.lua').read_text()
 config = (ROOT / 'src/shared/Config.lua').read_text()
 service = (ROOT / 'src/server/Services/ProgressionService.lua').read_text()
 service = service.replace('local ReplicatedStorage = game:GetService("ReplicatedStorage")', '')
-service = service.replace('local Config = require(ReplicatedStorage.Shared.Config)', '')
-service = service.replace('local Rules = require(ReplicatedStorage.Shared.Rules)', '')
+service = service.replace('local Config = require(ReplicatedStorage.ArchipelagoShared.Config)', '')
+service = service.replace('local Rules = require(ReplicatedStorage.ArchipelagoShared.Rules)', '')
 prelude = '''local mt = {}
 local Vector3 = {}
 function Vector3.new(x,y,z) return setmetatable({X=x,Y=y,Z=z},mt) end
@@ -32,8 +32,8 @@ with tempfile.TemporaryDirectory() as d:
     f.write_text(bundle)
     subprocess.run([a.luau, str(f)], check=True)
 service = (ROOT / 'src/server/Services/DataService.lua').read_text()
-service = service.replace('local Config = require(ReplicatedStorage.Shared.Config)', '')
-service = service.replace('local Rules = require(ReplicatedStorage.Shared.Rules)', '')
+service = service.replace('local Config = require(ReplicatedStorage.ArchipelagoShared.Config)', '')
+service = service.replace('local Rules = require(ReplicatedStorage.ArchipelagoShared.Rules)', '')
 harness = (ROOT / 'tests/data_cases.luau').read_text()
 bundle = ('local Rules = (function()\n' + rules + '\nend)()\n'
           'local Config = (function()\n' + config + '\nend)()\n'

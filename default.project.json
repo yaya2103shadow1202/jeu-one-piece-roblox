@@ -5,25 +5,72 @@
     "Workspace": {
       "$className": "Workspace",
       "$ignoreUnknownInstances": true,
-      "Archipelago": { "$path": "world/Archipelago.rbxm" }
+      "Archipelago": {
+        "$path": "world/Archipelago.rbxm"
+      }
     },
     "ReplicatedFirst": {
       "$className": "ReplicatedFirst",
-      "Boot": { "$path": "src/first/Boot.client.lua" }
+      "Boot": {
+        "$path": "src/first/Boot.client.lua"
+      }
     },
     "ReplicatedStorage": {
       "$className": "ReplicatedStorage",
-      "Shared": { "$path": "src/shared" }
+      "$ignoreUnknownInstances": true,
+      "ArchipelagoShared": {
+        "$className": "Folder",
+        "Config": {
+          "$path": "src/shared/Config.lua"
+        },
+        "Rules": {
+          "$path": "src/shared/Rules.lua"
+        }
+      }
     },
     "ServerScriptService": {
       "$className": "ServerScriptService",
-      "$path": "src/server"
+      "CombatServer": {
+        "$path": "src/server/CombatServer.server.lua"
+      },
+      "Services": {
+        "$className": "Folder",
+        "Builders": {
+          "$path": "src/server/Services/Builders.lua"
+        },
+        "CombatService": {
+          "$path": "src/server/Services/CombatService.lua"
+        },
+        "DataService": {
+          "$path": "src/server/Services/DataService.lua"
+        },
+        "NPCService": {
+          "$path": "src/server/Services/NPCService.lua"
+        },
+        "ProgressionService": {
+          "$path": "src/server/Services/ProgressionService.lua"
+        },
+        "WorldService": {
+          "$path": "src/server/Services/WorldService.lua"
+        }
+      }
     },
     "StarterPlayer": {
       "$className": "StarterPlayer",
       "StarterPlayerScripts": {
         "$className": "StarterPlayerScripts",
-        "$path": "src/client"
+        "Combat": {
+          "$path": "src/client/Combat.client.lua"
+        },
+        "Game": {
+          "$path": "src/client/Game.client.lua"
+        },
+        "Movement": {
+          "$path": "src/client/Movement.client.lua"
+        },
+        "UI": {
+          "$path": "src/client/UI.lua"
+        }
       }
     }
   }

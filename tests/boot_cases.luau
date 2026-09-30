@@ -18,8 +18,9 @@ local function scenario(failure)
 	end
 	local function instance(name) return setmetatable({Name = name, Children = {}, OnServerEvent = signal}, mt) end
 	local storage, scripts = instance("ReplicatedStorage"), instance("ServerScriptService")
-	storage.Children.Shared = instance("Shared")
-	storage.Shared.Children.Config, storage.Shared.Children.Rules = {}, {}
+	storage.Children.Shared = instance("Shared") -- stale folder must not be used
+	storage.Children.ArchipelagoShared = instance("ArchipelagoShared")
+	storage.ArchipelagoShared.Children.Config, storage.ArchipelagoShared.Children.Rules = {}, {}
 	scripts.Children.Services = instance("Services")
 	for _, name in ipairs({"Builders", "DataService", "WorldService", "CombatService", "NPCService", "ProgressionService"}) do scripts.Services.Children[name] = {} end
 	local models, spawned = {}, 0
@@ -32,8 +33,9 @@ local function scenario(failure)
 	models[scripts.Services.CombatService] = {init = function() end}
 	models[scripts.Services.NPCService] = {init = function() end}
 	models[scripts.Services.ProgressionService] = {init = function() end}
-	models[storage.Shared.Rules] = {}
+	models[storage.ArchipelagoShared.Rules] = {}
 	if failure == "missing" then scripts.Services.Children.WorldService = nil end
+	if failure == "config" then storage.ArchipelagoShared.Children.Config = nil end
 	local game = {GetService = function(_, name) return name == "Players" and players or storage end}
 	local script = {Parent = scripts}
 	local Instance = {new = function(class) return instance(class) end}
@@ -65,4 +67,5 @@ scenario(nil)
 scenario("map")
 scenario("module")
 scenario("missing")
+scenario("config")
 print("PASS bootstrap:", count, "assertions")

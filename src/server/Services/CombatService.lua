@@ -2,8 +2,8 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Debris = game:GetService("Debris")
-local Config = require(ReplicatedStorage.Shared.Config)
-local Rules = require(ReplicatedStorage.Shared.Rules)
+local Config = require(ReplicatedStorage.ArchipelagoShared.Config)
+local Rules = require(ReplicatedStorage.ArchipelagoShared.Rules)
 local B = require(script.Parent.Builders)
 local Combat = {States = {}, Ledger = setmetatable({}, {__mode = "k"})}
 local nextAttackId = 0

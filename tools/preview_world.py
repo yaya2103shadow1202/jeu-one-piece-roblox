@@ -9,7 +9,7 @@ source=(root/'tests/world_harness.luau').read_text()
 for name,path in [('Config','src/shared/Config.lua'),('B','src/server/Services/Builders.lua'),('World','src/server/Services/WorldService.lua')]:
  s=(root/path).read_text()
  if name=='World':
-  s=s.replace('local Config = require(ReplicatedStorage.Shared.Config)','').replace('local B = require(script.Parent.Builders)','')
+  s=s.replace('local Config = require(ReplicatedStorage.ArchipelagoShared.Config)','').replace('local B = require(script.Parent.Builders)','')
  source+='\nlocal '+name+' = (function()\n'+s+'\nend)()\n'
 source+='''
 World.build()

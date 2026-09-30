@@ -8,6 +8,12 @@ Le correctif ajoute un modèle natif `world/Archipelago.rbxm` synchronisé dans 
 
 Le démarrage attend les modules, capture ses erreurs et restaure CharacterAutoLoads en cas d'échec. Un LocalScript indépendant dans ReplicatedFirst affiche chargement, étape bloquée ou erreur, même avant l'apparition du personnage. Les contrôles incluent maintenant le modèle réellement construit par Rojo et les scénarios d'échec du bootstrap. La session Studio de l'utilisateur reste à observer après synchronisation.
 
+## Reprise du 30 septembre — module Config manquant
+
+La seconde capture utilisateur confirme que le décor et le personnage apparaissent. Elle affiche précisément « Synchronisation incomplète : ReplicatedStorage.Shared.Config ». Le fichier Config était bien présent dans le dépôt et dans la construction locale ; la capture ne permet pas d'expliquer pourquoi il manquait dans cette session Studio.
+
+Le correctif déclare chaque script/module explicitement dans le projet Rojo et place Config/Rules dans `ReplicatedStorage.ArchipelagoShared`. Tous les consommateurs ont été mis à jour. Le test du démarrage conserve un ancien dossier Shared vide et confirme que celui-ci ne gêne pas le lancement. Le contrôle du fichier natif valide désormais les 14 sources de scripts/modules, pas seulement les trois scripts d'entrée. Le scénario de Config absent est couvert. Les fonctions de jeu restent à tester dans la session Studio après reconnexion hors Play.
+
 ## Direction retenue
 
 Construire un jeu Roblox d'aventure pirate inspiré de One Piece, avec une progression sérieuse sans fruit, un Haki exigeant, des armes distinctes et des fruits dont le joueur compose les techniques. Priorité à une boucle jouable, puis aux sensations et à la qualité visuelle.

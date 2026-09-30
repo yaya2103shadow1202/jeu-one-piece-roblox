@@ -59,10 +59,21 @@ def main():
         (child(child(root, 'ServerScriptService'), 'CombatServer'), 'Script', 'src/server/CombatServer.server.lua'),
         (child(child(child(root, 'StarterPlayer'), 'StarterPlayerScripts'), 'Game'), 'LocalScript', 'src/client/Game.client.lua'),
     ]
+    shared = child(child(root, 'ReplicatedStorage'), 'ArchipelagoShared')
+    for module in ['Config', 'Rules']:
+        checks.append((child(shared, module), 'ModuleScript', f'src/shared/{module}.lua'))
+    services = child(child(root, 'ServerScriptService'), 'Services')
+    for source in sorted((ROOT / 'src/server/Services').glob('*.lua')):
+        checks.append((child(services, source.stem), 'ModuleScript', str(source.relative_to(ROOT))))
+    clients = child(child(root, 'StarterPlayer'), 'StarterPlayerScripts')
+    for label, cls, source in [('Combat', 'LocalScript', 'Combat.client.lua'),
+                               ('Movement', 'LocalScript', 'Movement.client.lua'),
+                               ('UI', 'ModuleScript', 'UI.lua')]:
+        checks.append((child(clients, label), cls, 'src/client/' + source))
     for node, cls, source in checks:
         assert node.get('class') == cls
         text = node.find('./Properties/*[@name="Source"]')
         assert text is not None and text.text == (ROOT / source).read_text(), source
-    print(f'PASS native Rojo place: {len(parts)} parts, 4 islands, 4 spawns, 10 prompts, valid references and exact boot/client sources')
+    print(f'PASS native Rojo place: {len(parts)} parts, 4 islands, 4 spawns, 10 prompts, valid references and {len(checks)} exact script/module sources')
 
 if __name__ == '__main__': main()
