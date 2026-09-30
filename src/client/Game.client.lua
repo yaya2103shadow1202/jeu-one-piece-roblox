@@ -24,13 +24,11 @@ fit()
 if workspace.CurrentCamera then workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(fit) end
 UI.text(canvas, "LES MERS LIBRES", 24, 17, 390, 30, 22, palette.Gold, true)
 local region = UI.text(canvas, "Port Brise-Azur", 24, 46, 440, 24, 14, palette.Muted)
-local vitals = UI.round(UI.frame(canvas, "Vitals", 24, 83, 274, 106), 12)
+local vitals = UI.round(UI.frame(canvas, "Progression", 24, 83, 274, 80), 12)
 UI.stroke(vitals)
 local levelText = UI.text(vitals, "CHARGEMENT…", 14, 9, 250, 22, 15, palette.Text, true)
-local hpText = UI.text(vitals, "VIE", 14, 32, 250, 20, 12, palette.Muted)
-local hpBar = UI.bar(vitals, 14, 55, 246, 7, palette.Teal)
-local xpBar = UI.bar(vitals, 14, 78, 246, 4, palette.Gold)
-local xpText = UI.text(vitals, "", 14, 85, 245, 17, 10, palette.Muted)
+local xpText = UI.text(vitals, "", 14, 33, 245, 17, 10, palette.Muted)
+local xpBar = UI.bar(vitals, 14, 58, 246, 5, palette.Gold)
 local questPanel = UI.round(UI.frame(canvas, "Quest", 923, 83, 332, 180), 12)
 UI.stroke(questPanel)
 UI.text(questPanel, "JOURNAL DE BORD", 16, 12, 292, 20, 12, palette.Gold, true)
@@ -38,20 +36,18 @@ local questTitle = UI.text(questPanel, "Ton aventure commence", 16, 38, 300, 40,
 local questBody = UI.text(questPanel, "Parle à Alma sur la place du port. Approche-toi et appuie sur [E].", 16, 82, 300, 70, 14, palette.Muted)
 local coins = UI.text(canvas, "0 pièces", 950, 276, 300, 28, 18, palette.Gold, true)
 coins.TextXAlignment = Enum.TextXAlignment.Right
-local resources = UI.round(UI.frame(canvas, "Resources", 24, 653, 325, 111), 12)
-local energyText = UI.text(resources, "ÉNERGIE 100", 14, 10, 290, 21, 12, palette.Muted, true)
-local energyBar = UI.bar(resources, 14, 37, 295, 5, palette.Teal)
-local hakiText = UI.text(resources, "Observation à débloquer", 14, 51, 298, 22, 13, palette.Text)
-local armamentText = UI.text(resources, "Armement à débloquer", 14, 78, 298, 20, 12, palette.Muted)
+local hakiPanel = UI.round(UI.frame(canvas, "Haki", 24, 665, 325, 74), 12)
+local hakiText = UI.text(hakiPanel, "Observation à débloquer", 14, 8, 298, 22, 13, palette.Text)
+local armamentText = UI.text(hakiPanel, "Armement à débloquer", 14, 39, 298, 20, 12, palette.Muted)
 local status = UI.text(canvas, "Connexion…", 902, 744, 354, 24, 11, palette.Muted)
 status.TextXAlignment = Enum.TextXAlignment.Right
-local controls = UI.text(canvas, "Clic : attaque   R : lourde / recharge   Q : dash   F : esquive   H : Haki   Z : fruit", 357, 769, 900, 20, 12, palette.Muted)
-local hotbar = UI.round(UI.frame(canvas, "Styles", 426, 699, 478, 64), 12)
+local controls = UI.text(canvas, "Clic : attaque   R : lourde / recharge   Q : dash   F : esquive   H : Haki   Z : fruit", 357, 535, 900, 20, 12, palette.Muted)
+local hotbar = UI.round(UI.frame(canvas, "Styles", 426, 565, 478, 64), 12)
 local styleButtons = {}
 for i, id in ipairs({"Fists", "Sword", "Gun"}) do
 	styleButtons[id] = UI.button(hotbar, i .. "  " .. Config.Styles[id].Name, 8 + (i - 1) * 157, 8, 151, 48, function() request:FireServer("Equip", id) end)
 end
-local ammo = UI.text(canvas, "", 465, 669, 400, 23, 13, palette.Gold)
+local ammo = UI.text(canvas, "", 465, 637, 400, 23, 13, palette.Gold)
 ammo.TextXAlignment = Enum.TextXAlignment.Center
 local notification = UI.round(UI.frame(canvas, "Notification", 365, 84, 550, 62), 10)
 notification.Visible = false
@@ -201,9 +197,55 @@ local function showMap()
 		UI.text(chart, island.Name, x - 71, y + 27, 154, 25, 10, palette.Text, true).TextXAlignment = Enum.TextXAlignment.Center
 	end
 end
-UI.button(canvas, "M  CARTE", 883, 20, 114, 37, showMap)
-UI.button(canvas, "B  STYLES", 1007, 20, 119, 37, showStyles)
-UI.button(canvas, "T  FRUIT", 1136, 20, 120, 37, showTechnique)
+local function showInventory()
+	if not profile then return end
+	local panel = open("SAC", "Tes équipements et maîtrises actuelles.", "Inventory")
+	local owned = {}
+	for _, id in ipairs({"Fists", "Sword", "Gun"}) do
+		if profile.Owned[id] then table.insert(owned, Config.Styles[id].Name .. " · maîtrise " .. profile.Mastery[id]) end
+	end
+	UI.text(panel, "ÉQUIPEMENT\n" .. table.concat(owned, "\n"), 28, 118, 330, 180, 18, palette.Text)
+	UI.text(panel, "TRÉSOR\n" .. profile.Coins .. " pièces\n\nFRUIT\n" .. (profile.Fruit or "Aucun fruit"), 397, 118, 315, 180, 18, palette.Gold)
+	UI.button(panel, "STYLES ET HAKI", 28, 389, 320, 52, showStyles)
+	UI.button(panel, "TECHNIQUE DE FRUIT", 390, 389, 322, 52, showTechnique)
+end
+local function showShop()
+	local panel = open("BOUTIQUE", "La boutique du port proposera des objets achetés avec les pièces gagnées en jeu.", "Shop")
+	UI.text(panel, "La boutique est en construction.\nAucun achat payant n'est actif.", 28, 155, 694, 120, 23, palette.Text, true).TextXAlignment = Enum.TextXAlignment.Center
+	UI.text(panel, "Tes pièces actuelles : " .. (profile and profile.Coins or 0), 28, 294, 694, 45, 18, palette.Gold, true).TextXAlignment = Enum.TextXAlignment.Center
+end
+local helpVisible = true
+local function showSettings()
+	local panel = open("RÉGLAGES", "Réglages locaux de l'interface.", "Settings")
+	local helpButton
+	helpButton = UI.button(panel, "AIDE DES TOUCHES : " .. (helpVisible and "VISIBLE" or "MASQUÉE"), 28, 125, 694, 56, function()
+		helpVisible = not helpVisible
+		controls.Visible = helpVisible
+		helpButton.Text = "AIDE DES TOUCHES : " .. (helpVisible and "VISIBLE" or "MASQUÉE")
+	end)
+	UI.button(panel, "FERMER TOUS LES MENUS", 28, 205, 694, 56, close)
+end
+
+-- Interface principale inspirée du dessin fourni : commandes et jauges en bas au centre.
+local dock = UI.round(UI.frame(canvas, "MainDock", 430, 668, 420, 58, Color3.fromRGB(247, 221, 75)), 29)
+local dockButtons = {
+	{"🎒", "Sac", showInventory}, {"🛒", "Boutique", showShop},
+	{"🌍", "Monde", showMap}, {"⚙", "Réglages", showSettings},
+}
+for i, definition in ipairs(dockButtons) do
+	local button = UI.button(dock, definition[1], 12 + (i - 1) * 102, 5, 90, 48, definition[3], Color3.fromRGB(247, 221, 75))
+	button.Name, button.TextSize, button.TextColor3 = definition[2], 29, Color3.fromRGB(8, 12, 15)
+end
+local energyTrack = UI.round(UI.frame(canvas, "EnergyTrack", 430, 728, 420, 30, Color3.fromRGB(36, 208, 231)), 15)
+local energyFill = UI.round(UI.frame(energyTrack, "Fill", 0, 0, 420, 30, Color3.fromRGB(36, 208, 231)), 15)
+energyTrack.ClipsDescendants = true
+local energyText = UI.text(energyTrack, "100% ÉNERGIE", 0, 0, 420, 30, 18, Color3.fromRGB(5, 14, 17), true)
+energyText.TextXAlignment = Enum.TextXAlignment.Center
+local healthTrack = UI.round(UI.frame(canvas, "HealthTrack", 430, 760, 420, 30, Color3.fromRGB(54, 214, 103)), 15)
+local healthFill = UI.round(UI.frame(healthTrack, "Fill", 0, 0, 420, 30, Color3.fromRGB(54, 214, 103)), 15)
+healthTrack.ClipsDescendants = true
+local hpText = UI.text(healthTrack, "100% VIE", 0, 0, 420, 30, 18, Color3.fromRGB(5, 14, 17), true)
+hpText.TextXAlignment = Enum.TextXAlignment.Center
 remotes:WaitForChild("Dialogue").OnClientEvent:Connect(function(dialogue)
 	if dialogue.Kind == "Quest" then showQuests(dialogue)
 	elseif dialogue.Kind == "Ferry" then showFerry(dialogue)
@@ -239,9 +281,15 @@ RunService.RenderStepped:Connect(function(dt)
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local root = character and character:FindFirstChild("HumanoidRootPart")
-	if humanoid then hpBar(humanoid.Health / humanoid.MaxHealth); hpText.Text = "VIE  " .. math.ceil(humanoid.Health) .. " / " .. humanoid.MaxHealth end
+	if humanoid then
+		local ratio = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
+		healthFill.Size = UDim2.new(ratio, 0, 1, 0)
+		hpText.Text = math.floor(ratio * 100 + 0.5) .. "% VIE"
+	end
 	local energy = player:GetAttribute("Energy") or 100
-	energyBar(energy / 100); energyText.Text = "ÉNERGIE  " .. energy .. " / 100"
+	local energyRatio = math.clamp(energy / 100, 0, 1)
+	energyFill.Size = UDim2.new(energyRatio, 0, 1, 0)
+	energyText.Text = math.floor(energyRatio * 100 + 0.5) .. "% ÉNERGIE"
 	local unlocked = player:GetAttribute("ObservationUnlocked") or player:GetAttribute("ObservationTraining")
 	local charge = player:GetAttribute("ObservationCharges") or 3
 	local recharge = math.max(0, (player:GetAttribute("ObservationRechargeAt") or 0) - workspace:GetServerTimeNow())
