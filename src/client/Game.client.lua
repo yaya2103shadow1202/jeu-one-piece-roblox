@@ -22,7 +22,7 @@ local function fit()
 end
 fit()
 if workspace.CurrentCamera then workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(fit) end
-UI.text(canvas, "LES MERS LIBRES", 24, 17, 390, 30, 22, palette.Gold, true)
+local title = UI.text(canvas, "LES MERS LIBRES", 24, 17, 390, 30, 22, palette.Gold, true)
 local region = UI.text(canvas, "Port Brise-Azur", 24, 46, 440, 24, 14, palette.Muted)
 local vitals = UI.round(UI.frame(canvas, "Progression", 24, 83, 274, 80), 12)
 UI.stroke(vitals)
@@ -42,13 +42,12 @@ local armamentText = UI.text(hakiPanel, "Armement à débloquer", 14, 39, 298, 2
 local status = UI.text(canvas, "Connexion…", 902, 744, 354, 24, 11, palette.Muted)
 status.TextXAlignment = Enum.TextXAlignment.Right
 local controls = UI.text(canvas, "Clic : attaque   R : lourde / recharge   Q : dash   F : esquive   H : Haki   Z : fruit", 357, 535, 900, 20, 12, palette.Muted)
-local hotbar = UI.round(UI.frame(canvas, "Styles", 426, 565, 478, 64), 12)
 local styleButtons = {}
-for i, id in ipairs({"Fists", "Sword", "Gun"}) do
-	styleButtons[id] = UI.button(hotbar, i .. "  " .. Config.Styles[id].Name, 8 + (i - 1) * 157, 8, 151, 48, function() request:FireServer("Equip", id) end)
-end
 local ammo = UI.text(canvas, "", 465, 637, 400, 23, 13, palette.Gold)
 ammo.TextXAlignment = Enum.TextXAlignment.Center
+for _, element in ipairs({title, region, vitals, questPanel, coins, hakiPanel, status, controls, ammo}) do
+	element.Visible = false
+end
 local notification = UI.round(UI.frame(canvas, "Notification", 365, 84, 550, 62), 10)
 notification.Visible = false
 local notificationText = UI.text(notification, "", 18, 6, 514, 50, 16, palette.Text, true)
@@ -227,7 +226,7 @@ local function showSettings()
 end
 
 -- Interface principale inspirée du dessin fourni : commandes et jauges en bas au centre.
-local dock = UI.round(UI.frame(canvas, "MainDock", 430, 668, 420, 58, Color3.fromRGB(247, 221, 75)), 29)
+local dock = UI.round(UI.frame(canvas, "MainDock", 430, 600, 420, 58, Color3.fromRGB(247, 221, 75)), 29)
 local dockButtons = {
 	{"🎒", "Sac", showInventory}, {"🛒", "Boutique", showShop},
 	{"🌍", "Monde", showMap}, {"⚙", "Réglages", showSettings},
@@ -236,16 +235,21 @@ for i, definition in ipairs(dockButtons) do
 	local button = UI.button(dock, definition[1], 12 + (i - 1) * 102, 5, 90, 48, definition[3], Color3.fromRGB(247, 221, 75))
 	button.Name, button.TextSize, button.TextColor3 = definition[2], 29, Color3.fromRGB(8, 12, 15)
 end
-local energyTrack = UI.round(UI.frame(canvas, "EnergyTrack", 430, 728, 420, 30, Color3.fromRGB(36, 208, 231)), 15)
+local energyTrack = UI.round(UI.frame(canvas, "EnergyTrack", 430, 660, 420, 30, Color3.fromRGB(36, 208, 231)), 15)
 local energyFill = UI.round(UI.frame(energyTrack, "Fill", 0, 0, 420, 30, Color3.fromRGB(36, 208, 231)), 15)
 energyTrack.ClipsDescendants = true
 local energyText = UI.text(energyTrack, "100% ÉNERGIE", 0, 0, 420, 30, 18, Color3.fromRGB(5, 14, 17), true)
 energyText.TextXAlignment = Enum.TextXAlignment.Center
-local healthTrack = UI.round(UI.frame(canvas, "HealthTrack", 430, 760, 420, 30, Color3.fromRGB(54, 214, 103)), 15)
+local healthTrack = UI.round(UI.frame(canvas, "HealthTrack", 430, 692, 420, 30, Color3.fromRGB(54, 214, 103)), 15)
 local healthFill = UI.round(UI.frame(healthTrack, "Fill", 0, 0, 420, 30, Color3.fromRGB(54, 214, 103)), 15)
 healthTrack.ClipsDescendants = true
 local hpText = UI.text(healthTrack, "100% VIE", 0, 0, 420, 30, 18, Color3.fromRGB(5, 14, 17), true)
 hpText.TextXAlignment = Enum.TextXAlignment.Center
+local quickbar = UI.round(UI.frame(canvas, "PlayerInventory", 430, 726, 420, 62, Color3.fromRGB(16, 29, 42)), 12)
+UI.stroke(quickbar, Color3.fromRGB(247, 221, 75))
+styleButtons.Fists = UI.button(quickbar, "1  POINGS", 8, 7, 128, 48, function() request:FireServer("Equip", "Fists") end)
+UI.button(quickbar, "2  FRUIT", 146, 7, 128, 48, showTechnique, Color3.fromRGB(107, 89, 61))
+styleButtons.Sword = UI.button(quickbar, "3  SABRE", 284, 7, 128, 48, function() request:FireServer("Equip", "Sword") end)
 remotes:WaitForChild("Dialogue").OnClientEvent:Connect(function(dialogue)
 	if dialogue.Kind == "Quest" then showQuests(dialogue)
 	elseif dialogue.Kind == "Ferry" then showFerry(dialogue)
@@ -256,7 +260,9 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	if processed or UserInputService:GetFocusedTextBox() then return end
 	if input.KeyCode == Enum.KeyCode.M then if page == "Map" then close() else showMap() end
 	elseif input.KeyCode == Enum.KeyCode.B then if page == "Styles" then close() else showStyles() end
-	elseif input.KeyCode == Enum.KeyCode.T then if page == "Technique" then close() else showTechnique() end end
+	elseif input.KeyCode == Enum.KeyCode.T or input.KeyCode == Enum.KeyCode.Two then if page == "Technique" then close() else showTechnique() end
+	elseif input.KeyCode == Enum.KeyCode.One then request:FireServer("Equip", "Fists")
+	elseif input.KeyCode == Enum.KeyCode.Three then request:FireServer("Equip", "Sword") end
 end)
 local damagePanel = UI.round(UI.frame(canvas, "Damage", 1050, 430, 205, 88), 12)
 damagePanel.Visible = false
@@ -268,7 +274,7 @@ ReplicatedStorage:WaitForChild("CombatRemotes"):WaitForChild("M1Feedback").OnCli
 	if os.clock() - lastHit > 1.4 or combo == 1 then damage, hits = 0, 0 end
 	damage, hits, lastHit = damage + amount, hits + hitCount, os.clock()
 	damageLabel.Text = math.floor(damage + 0.5) .. "  ·  " .. hits .. " coups"
-	damagePanel.Visible = true
+	damagePanel.Visible = false
 	token += 1
 	local current = token
 	task.delay(1.5, function() if token == current then damagePanel.Visible = false end end)
